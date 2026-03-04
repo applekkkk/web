@@ -88,7 +88,12 @@ function handleLogout() {
 }
 
 .sidebar {
+  position: sticky;
+  top: 0;
+  align-self: flex-start;
   width: 230px;
+  height: 100vh;
+  overflow-y: auto;
   color: #eef4ff;
   padding: 28px 18px;
   background: linear-gradient(180deg, #0f2745, #1a3d66);
@@ -165,7 +170,10 @@ function handleLogout() {
   }
 
   .sidebar {
+    position: static;
     width: 100%;
+    height: auto;
+    overflow: visible;
   }
 }
 </style>

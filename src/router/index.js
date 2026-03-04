@@ -1,4 +1,4 @@
-import { createRouter, createWebHistory } from "vue-router";
+﻿import { createRouter, createWebHistory } from "vue-router";
 import { useAuthStore } from "../stores/auth";
 
 const LoginView = () => import("../views/LoginView.vue");
@@ -7,6 +7,7 @@ const AppShell = () => import("../layouts/AppShell.vue");
 const userRoutes = [
   { path: "dashboard", name: "user-dashboard", component: () => import("../views/user/UserDashboardView.vue"), meta: { title: "工作台" } },
   { path: "market", name: "user-market", component: () => import("../views/user/MarketView.vue"), meta: { title: "数据市场" } },
+  { path: "market/:id", name: "user-market-detail", component: () => import("../views/user/DatasetDetailView.vue"), meta: { title: "数据详情" } },
   { path: "upload", name: "user-upload", component: () => import("../views/user/UploadManageView.vue"), meta: { title: "上传管理" } },
   { path: "orders", name: "user-orders", component: () => import("../views/user/OrdersView.vue"), meta: { title: "交易订单" } },
   { path: "wallet", name: "user-wallet", component: () => import("../views/user/WalletView.vue"), meta: { title: "积分结算" } },
