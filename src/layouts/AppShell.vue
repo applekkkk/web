@@ -31,6 +31,7 @@ const adminMenus = [
 ];
 
 const menus = computed(() => (isAdmin.value ? adminMenus : userMenus));
+const avatarText = computed(() => auth.user?.name?.slice(0, 1) || "我");
 
 function isActive(path) {
   return route.path === path;
@@ -40,9 +41,8 @@ function navigate(path) {
   if (route.path !== path) router.push(path);
 }
 
-function handleLogout() {
-  auth.logout();
-  router.push("/login");
+function goProfile() {
+  router.push(isAdmin.value ? "/admin/profile" : "/user/profile");
 }
 </script>
 
@@ -71,7 +71,9 @@ function handleLogout() {
           <strong>{{ route.meta.title || "页面" }}</strong>
           <div class="sub">欢迎，{{ auth.user?.name }}</div>
         </div>
-        <button class="logout" @click="handleLogout">退出登录</button>
+        <button class="avatar-btn" @click="goProfile" :title="'进入个人中心'">
+          {{ avatarText }}
+        </button>
       </header>
 
       <main class="content">
@@ -150,11 +152,15 @@ function handleLogout() {
   font-size: 12px;
 }
 
-.logout {
+.avatar-btn {
+  width: 36px;
+  height: 36px;
   border: none;
-  border-radius: 8px;
-  padding: 8px 12px;
+  border-radius: 50%;
+  padding: 0;
   color: #fff;
+  font-size: 14px;
+  font-weight: 700;
   background: #345d92;
   cursor: pointer;
 }

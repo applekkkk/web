@@ -2,6 +2,7 @@
 import { computed, ref } from "vue";
 import { useRouter } from "vue-router";
 import { marketData } from "../../mock/data";
+import { ElMessage } from "element-plus";
 
 const keyword = ref("");
 const activeCategory = ref("All");
@@ -74,6 +75,7 @@ function toggleFavorite(item) {
 
 function handleDownload(item) {
   item.downloads = (item.downloads ?? 0) + 1;
+  ElMessage.success("下载成功")
 }
 
 function goDetail(id) {

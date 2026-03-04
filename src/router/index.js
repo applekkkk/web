@@ -15,14 +15,16 @@ const userRoutes = [
   { path: "custom-requests", name: "user-custom-requests", component: () => import("../views/user/CustomRequestView.vue"), meta: { title: "需求发布" } },
   { path: "custom-bids", name: "user-custom-bids", component: () => import("../views/user/CustomBidsView.vue"), meta: { title: "需求承接" } },
   { path: "processing", name: "user-processing", component: () => import("../views/user/ProcessingView.vue"), meta: { title: "数据处理" } },
-  { path: "analytics", name: "user-analytics", component: () => import("../views/user/AnalyticsView.vue"), meta: { title: "分析展示" } }
+  { path: "analytics", name: "user-analytics", component: () => import("../views/user/AnalyticsView.vue"), meta: { title: "分析展示" } },
+  { path: "profile", name: "user-profile", component: () => import("../views/common/ProfileView.vue"), meta: { title: "个人中心" } }
 ];
 
 const adminRoutes = [
   { path: "dashboard", name: "admin-dashboard", component: () => import("../views/admin/AdminDashboardView.vue"), meta: { title: "管理概览" } },
   { path: "review", name: "admin-review", component: () => import("../views/admin/ReviewView.vue"), meta: { title: "数据审核" } },
   { path: "users", name: "admin-users", component: () => import("../views/admin/UsersView.vue"), meta: { title: "用户管理" } },
-  { path: "orders", name: "admin-orders", component: () => import("../views/admin/OrderMonitorView.vue"), meta: { title: "订单监管" } }
+  { path: "orders", name: "admin-orders", component: () => import("../views/admin/OrderMonitorView.vue"), meta: { title: "订单监管" } },
+  { path: "profile", name: "admin-profile", component: () => import("../views/common/ProfileView.vue"), meta: { title: "个人中心" } }
 ];
 
 const router = createRouter({
