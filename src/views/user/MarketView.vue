@@ -75,7 +75,13 @@ function toggleFavorite(item) {
 
 function handleDownload(item) {
   item.downloads = (item.downloads ?? 0) + 1;
-  ElMessage.success("下载成功")
+  ElMessage.success("下载成功");
+}
+
+function handleBuy(item) {
+  if (item.purchased) return;
+  item.purchased = true;
+  ElMessage.success("购买成功");
 }
 
 function goDetail(id) {
@@ -120,12 +126,9 @@ function goDetail(id) {
     <p class="result-count">当前 {{ filteredData.length }} 个数据集</p>
 
     <section class="cards-grid">
-      <article v-for="item in filteredData" :key="item.id" class="card">
+      <article v-for="item in filteredData" :key="item.id" class="card" @click="goDetail(item.id)">
         <div class="card-main">
-          <div class="title-row">
-            <span class="hot">热</span>
-            <h3>{{ item.name }}</h3>
-          </div>
+          <h3>{{ item.name }}</h3>
 
           <div class="pill-row">
             <span class="pill">{{ item.category }}</span>
@@ -134,47 +137,34 @@ function goDetail(id) {
             </span>
           </div>
 
-          <p v-if="item.info" class="info">{{ item.info }}</p>
-          <p v-else class="info">高质量结构化数据集，适用于建模、分析与可视化任务。</p>
+          <p class="info">{{ item.info }}</p>
 
-          <p class="meta-strip">
-            <span>规模：{{ item.size }}</span>
-            <span>价格：{{ item.price }} 积分</span>
-          </p>
+          <div class="card-foot">
+            <div class="publisher">
+              <span class="avatar">{{ item.seller.charAt(0) }}</span>
+              <span>{{ item.seller }}</span>
+              <span class="dot">|</span>
+              <span>{{ item.uploadDate }} 上传</span>
+              <span class="dot">|</span>
+              <span>{{ item.size }}</span>
+              <span class="dot">|</span>
+              <span>{{ item.price }} 积分</span>
+            </div>
 
-          <div class="publisher">
-            <span class="avatar">{{ item.seller.charAt(0) }}</span>
-            <span class="name">{{ item.seller }}</span>
-          </div>
-        </div>
-
-        <div class="card-side">
-          <div class="stats">
-            <button type="button" class="stat-item" @click="toggleLike(item)">
-              <img
-                class="stat-icon"
-                :src="item.liked ? '/img/liked.png' : '/img/like.png'"
-                alt="点赞"
-              />
-              <span>{{ item.likes ?? 0 }}</span>
-            </button>
-            <button type="button" class="stat-item" @click="toggleFavorite(item)">
-              <img
-                class="stat-icon"
-                :src="item.favorited ? '/img/favorited.png' : '/img/favorite.png'"
-                alt="收藏"
-              />
-              <span>{{ item.stars ?? 0 }}</span>
-            </button>
-            <button type="button" class="stat-item" @click="handleDownload(item)">
-              <img class="stat-icon" src="/img/download.png" alt="下载" />
-              <span>{{ item.downloads ?? 0 }}</span>
-            </button>
-          </div>
-
-          <div class="card-actions">
-            <button type="button" class="btn ghost">数据预览</button>
-            <button type="button" class="btn primary" @click="goDetail(item.id)">查看详情</button>
+            <div class="stats" @click.stop>
+              <button type="button" class="stat-item" @click="toggleLike(item)">
+                <img class="stat-icon" :src="item.liked ? '/img/liked.png' : '/img/like.png'" alt="点赞" />
+                <span>{{ item.likes ?? 0 }}</span>
+              </button>
+              <button type="button" class="stat-item" @click="toggleFavorite(item)">
+                <img class="stat-icon" :src="item.favorited ? '/img/favorited.png' : '/img/favorite.png'" alt="收藏" />
+                <span>{{ item.stars ?? 0 }}</span>
+              </button>
+              <button type="button" class="stat-item" @click="item.purchased ? handleDownload(item) : handleBuy(item)">
+                <img class="stat-icon" :src="item.purchased ? '/img/download.png' : '/img/buy.png'" :alt="item.purchased ? '下载' : '购买'" />
+                <span>{{ item.purchased ? (item.downloads ?? 0) : `${item.price} 积分` }}</span>
+              </button>
+            </div>
           </div>
         </div>
       </article>
@@ -191,7 +181,7 @@ function goDetail(id) {
 }
 
 .toolbar {
-  border: 1px solid #dde6f5;
+  border: 1px solid #ebeef3;
   border-radius: 14px;
   padding: 14px;
   background: #fff;
@@ -205,7 +195,7 @@ function goDetail(id) {
 .search-input {
   flex: 1;
   min-width: 180px;
-  border: 1px solid #c8d7ee;
+  border: 1px solid #e3e7ee;
   border-radius: 10px;
   padding: 10px 12px;
   font-size: 14px;
@@ -213,7 +203,7 @@ function goDetail(id) {
 
 .sort-select {
   min-width: 190px;
-  border: 1px solid #c8d7ee;
+  border: 1px solid #e3e7ee;
   border-radius: 10px;
   padding: 10px 12px;
   font-size: 14px;
@@ -228,19 +218,19 @@ function goDetail(id) {
 }
 
 .chip {
-  border: 1px solid #d4e0f2;
+  border: 1px solid #e4e7ee;
   border-radius: 999px;
   padding: 7px 12px;
-  color: #3a5474;
+  color: #4f5d70;
   font-size: 13px;
-  background: #f7faff;
+  background: #fff;
   cursor: pointer;
 }
 
 .chip.active {
-  border-color: #204f84;
+  border-color: #1f2c3f;
   color: #fff;
-  background: #204f84;
+  background: #1f2c3f;
 }
 
 .hot-tags {
@@ -252,16 +242,16 @@ function goDetail(id) {
 
 .tag-title {
   margin-right: 6px;
-  color: #4a5f7c;
+  color: #505d70;
   font-size: 13px;
   font-weight: 600;
 }
 
 .tag-pill {
-  border: 1px dashed #c8d7ee;
+  border: 1px solid #e0e5ef;
   border-radius: 999px;
   padding: 4px 10px;
-  color: #406082;
+  color: #556277;
   font-size: 12px;
   background: #fff;
   cursor: pointer;
@@ -269,8 +259,9 @@ function goDetail(id) {
 
 .result-count {
   margin: 0;
-  color: #566b86;
-  font-size: 15px;
+  color: #4f5d70;
+  font-size: 16px;
+  font-weight: 600;
 }
 
 .cards-grid {
@@ -280,59 +271,23 @@ function goDetail(id) {
 }
 
 .card {
-  display: flex;
-  justify-content: space-between;
-  gap: 14px;
-  border: 1px solid #d7e3f6;
+  border: 1px solid #eaedf3;
   border-radius: 14px;
-  padding: 14px;
+  padding: 16px;
   background: #fff;
-  box-shadow: 0 8px 16px rgba(20, 49, 86, 0.05);
-  position: relative;
-  overflow: hidden;
+  cursor: pointer;
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
 }
 
-.card::before {
-  content: "";
-  position: absolute;
-  left: -14px;
-  top: -14px;
-  width: 120px;
-  height: 120px;
-  border-radius: 50%;
-  background: radial-gradient(circle at center, rgba(64, 128, 196, 0.12) 0%, rgba(64, 128, 196, 0) 70%);
+.card:hover {
+  box-shadow: 0 10px 18px rgba(17, 24, 39, 0.08);
+  transform: translateY(-1px);
 }
 
-.card-main {
-  flex: 1;
-  min-width: 0;
-  position: relative;
-  z-index: 1;
-}
-
-.title-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.hot {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 26px;
-  height: 20px;
-  border-radius: 10px;
-  color: #fff;
-  font-size: 11px;
-  font-weight: 700;
-  background: linear-gradient(125deg, #ff7f2f, #ff4f2f);
-}
-
-.card h3 {
+.card-main h3 {
   margin: 0;
-  color: #1a2f49;
-  font-size: 28px;
+  color: #202a36;
+  font-size: 30px;
   line-height: 1.2;
 }
 
@@ -340,41 +295,40 @@ function goDetail(id) {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  margin-top: 8px;
+  margin-top: 10px;
 }
 
 .pill {
-  border: 1px solid #d5dfef;
+  border: 1px solid #e2e7ef;
   border-radius: 8px;
-  padding: 3px 8px;
-  color: #344e6e;
-  font-size: 12px;
-  background: #fafcff;
+  padding: 4px 10px;
+  color: #4e5d70;
+  font-size: 13px;
+  background: #fff;
 }
 
 .info {
-  margin: 10px 0 0;
-  color: #6c8098;
-  font-size: 14px;
-  line-height: 1.55;
+  margin: 12px 0 0;
+  color: #515d6d;
+  font-size: 15px;
+  line-height: 1.75;
 }
 
-.meta-strip {
-  display: inline-flex;
-  gap: 10px;
-  margin: 10px 0 0;
-  border-radius: 8px;
-  padding: 6px 10px;
-  color: #6f8199;
-  font-size: 12px;
-  background: #f0f4fa;
+.card-foot {
+  margin-top: 14px;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
 }
 
 .publisher {
   display: flex;
   align-items: center;
-  gap: 6px;
-  margin-top: 10px;
+  flex-wrap: wrap;
+  gap: 8px;
+  color: #6a7484;
+  font-size: 13px;
 }
 
 .avatar {
@@ -384,32 +338,21 @@ function goDetail(id) {
   width: 22px;
   height: 22px;
   border-radius: 50%;
-  color: #2f5078;
+  color: #374151;
   font-size: 11px;
   font-weight: 700;
-  background: #e5edfb;
+  background: #eef2f7;
 }
 
-.name {
-  color: #364f70;
-  font-size: 13px;
-}
-
-.card-side {
-  min-width: 185px;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  align-items: flex-end;
-  position: relative;
-  z-index: 1;
+.dot {
+  color: #c3c8d2;
 }
 
 .stats {
   display: flex;
-  gap: 12px;
-  color: #7c90a8;
-  font-size: 13px;
+  gap: 8px;
+  color: #6b7688;
+  font-size: 14px;
 }
 
 .stat-item {
@@ -425,38 +368,13 @@ function goDetail(id) {
 }
 
 .stat-item:hover {
-  background: #f1f6ff;
+  background: #f5f7fb;
 }
 
 .stat-icon {
-  width: 22px;
-  height: 22px;
+  width: 24px;
+  height: 24px;
   object-fit: contain;
-}
-
-.card-actions {
-  display: flex;
-  gap: 6px;
-  margin-top: 12px;
-}
-
-.btn {
-  border-radius: 8px;
-  padding: 6px 9px;
-  font-size: 11px;
-  cursor: pointer;
-}
-
-.btn.ghost {
-  border: 1px solid #c7d7ef;
-  color: #2f4e74;
-  background: #fff;
-}
-
-.btn.primary {
-  border: 1px solid #244f83;
-  color: #fff;
-  background: #244f83;
 }
 
 .empty {
@@ -467,21 +385,13 @@ function goDetail(id) {
 }
 
 @media (max-width: 900px) {
-  .card {
+  .card-main h3 {
+    font-size: 24px;
+  }
+
+  .card-foot {
     flex-direction: column;
-  }
-
-  .card-side {
-    min-width: 0;
     align-items: flex-start;
-  }
-
-  .card h3 {
-    font-size: 22px;
-  }
-
-  .stats {
-    font-size: 12px;
   }
 }
 

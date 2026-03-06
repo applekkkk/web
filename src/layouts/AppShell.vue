@@ -13,7 +13,7 @@ const title = computed(() => (isAdmin.value ? "管理端" : "用户端"));
 const userMenus = [
   { to: "/user/dashboard", label: "工作台" },
   { to: "/user/market", label: "数据市场" },
-  { to: "/user/upload", label: "上传管理" },
+  { to: "/user/upload", label: "数据上传" },
   { to: "/user/orders", label: "交易订单" },
   { to: "/user/wallet", label: "积分结算" },
   { to: "/user/warehouse", label: "个人仓库" },
@@ -31,7 +31,7 @@ const adminMenus = [
 ];
 
 const menus = computed(() => (isAdmin.value ? adminMenus : userMenus));
-const avatarText = computed(() => auth.user?.name?.slice(0, 1) || "我");
+const avatarUrl = computed(() => auth.user?.avatar || "/img/avatar.png");
 
 function isActive(path) {
   return route.path === path;
@@ -43,6 +43,10 @@ function navigate(path) {
 
 function goProfile() {
   router.push(isAdmin.value ? "/admin/profile" : "/user/profile");
+}
+
+function onAvatarError(event) {
+  event.target.src = "/img/avatar.png";
 }
 </script>
 
@@ -72,7 +76,7 @@ function goProfile() {
           <div class="sub">欢迎，{{ auth.user?.name }}</div>
         </div>
         <button class="avatar-btn" @click="goProfile" :title="'进入个人中心'">
-          {{ avatarText }}
+          <img class="avatar-img" :src="avatarUrl" alt="用户头像" @error="onAvatarError" />
         </button>
       </header>
 
@@ -158,11 +162,17 @@ function goProfile() {
   border: none;
   border-radius: 50%;
   padding: 0;
-  color: #fff;
-  font-size: 14px;
-  font-weight: 700;
-  background: #345d92;
+  overflow: hidden;
+  background: transparent;
   cursor: pointer;
+}
+
+.avatar-img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+  border-radius: 50%;
 }
 
 .content {

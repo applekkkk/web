@@ -2,7 +2,7 @@
 import { computed, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { marketData } from "../../mock/data";
-import { ElMessage } from "element-plus"
+import { ElMessage } from "element-plus";
 
 const route = useRoute();
 const router = useRouter();
@@ -29,6 +29,8 @@ const tags = computed(() => {
     .filter(Boolean);
 });
 
+const authorAvatarUrl = computed(() => dataset.value?.authorAvatar || "/img/avatar.png");
+
 function backToMarket() {
   router.push("/user/market");
 }
@@ -54,9 +56,20 @@ function toggleFavorite() {
 }
 
 function handleDownload() {
+  if (!dataset.value?.purchased) return;
   if (!dataset.value) return;
   dataset.value.downloads = (dataset.value.downloads ?? 0) + 1;
-  ElMessage.success("下载成功")
+  ElMessage.success("下载成功");
+}
+
+function handleBuy() {
+  if (!dataset.value || dataset.value.purchased) return;
+  dataset.value.purchased = true;
+  ElMessage.success("购买成功");
+}
+
+function onAuthorAvatarError(event) {
+  event.target.src = "/img/avatar.png";
 }
 </script>
 
@@ -71,8 +84,13 @@ function handleDownload() {
         </div>
 
         <div class="head-meta">
-          <span class="seller">{{ dataset.seller }}</span>
+          <span class="author-wrap">
+            <img class="avatar" :src="authorAvatarUrl" alt="作者头像" @error="onAuthorAvatarError" />
+            <span class="seller">{{ dataset.author || "未知作者" }}</span>
+          </span>
           <span>{{ dataset.uploadDate || "2024-01-01" }} 上传</span>
+          <span>{{ dataset.size }}</span>
+          <span>{{ dataset.price }} 积分</span>
         </div>
 
         <div class="icon-actions">
@@ -84,14 +102,16 @@ function handleDownload() {
             <img :src="dataset.favorited ? '/img/favorited.png' : '/img/favorite.png'" alt="收藏" />
             <span>{{ dataset.stars ?? 0 }}</span>
           </button>
-          <button type="button" class="icon-btn" @click="handleDownload">
-            <img src="/img/download.png" alt="下载" />
-            <span>{{ dataset.downloads ?? 0 }}</span>
+          <button type="button" class="icon-btn" @click="dataset.purchased ? handleDownload() : handleBuy()">
+            <img :src="dataset.purchased ? '/img/download.png' : '/img/buy.png'" :alt="dataset.purchased ? '下载' : '购买'" />
+            <span>{{ dataset.purchased ? (dataset.downloads ?? 0) : `${dataset.price} 积分` }}</span>
           </button>
         </div>
       </div>
 
-      <button class="download" @click="handleDownload">下载数据集</button>
+      <button class="download" @click="dataset.purchased ? handleDownload() : handleBuy()">
+        {{ dataset.purchased ? "下载数据集" : "购买数据集" }}
+      </button>
     </header>
 
     <section class="block">
@@ -103,34 +123,14 @@ function handleDownload() {
       <h2>数据统计</h2>
       <div class="table">
         <div class="row head">
-          <span>指标</span>
-          <span>数值</span>
-          <span>指标</span>
-          <span>数值</span>
+          <span>属性</span>
+          <span>描述</span>
         </div>
-        <div class="row">
-          <span>密度</span>
-          <span>{{ dataset.density ?? "-" }}</span>
-          <span>节点数</span>
-          <span>{{ dataset.nodeCount ?? "-" }}</span>
-        </div>
-        <div class="row">
-          <span>连边数</span>
-          <span>{{ dataset.edgeCount ?? "-" }}</span>
-          <span>文件规模</span>
-          <span>{{ dataset.size }}</span>
+        <div v-for="item in dataset.summary || []" :key="`${item.key}-${item.value}`" class="row two-col">
+          <span>{{ item.key }}</span>
+          <span>{{ item.value }}</span>
         </div>
       </div>
-    </section>
-
-    <section class="block">
-      <h2>数据源头</h2>
-      <h3>数据引文</h3>
-      <ul>
-        <li v-for="ref in dataset.references || []" :key="ref">{{ ref }}</li>
-      </ul>
-      <h3>数据来源</h3>
-      <p class="link">{{ dataset.sourceUrl || "-" }}</p>
     </section>
 
     <div class="actions">
@@ -145,8 +145,9 @@ function handleDownload() {
 </template>
 
 <style scoped>
+
 .detail-page {
-  border: 1px solid #dce5f3;
+  border: 1px solid #eceff4;
   border-radius: 18px;
   padding: 24px 28px;
   background: #fff;
@@ -157,14 +158,14 @@ function handleDownload() {
   align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
-  border-bottom: 1px solid #e7edf7;
+  border-bottom: 1px solid #eef1f5;
   padding-bottom: 16px;
 }
 
 h1 {
   margin: 0;
-  color: #1d2f47;
-  font-size: 46px;
+  color: #232c38;
+  font-size: 38px;
 }
 
 .tag-row {
@@ -175,23 +176,39 @@ h1 {
 }
 
 .tag {
-  border: 1px solid #d4deee;
+  border: 1px solid #e2e7ef;
   border-radius: 8px;
   padding: 5px 11px;
-  color: #415a79;
-  background: #fafcff;
+  color: #4a5768;
+  background: #fff;
 }
 
 .head-meta {
   display: flex;
   flex-wrap: wrap;
-  gap: 18px;
+  align-items: center;
+  gap: 16px;
   margin-top: 14px;
-  color: #7b8da4;
+  color: #6c7788;
+}
+
+.author-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.avatar {
+  width: 28px;
+  height: 28px;
+  display: block;
+  object-fit: cover;
+  border-radius: 50%;
+  border: 1px solid #dbe3ef;
 }
 
 .seller {
-  color: #2a4668;
+  color: #2f3a4a;
   font-weight: 600;
 }
 
@@ -206,20 +223,15 @@ h1 {
   align-items: center;
   gap: 6px;
   border: none;
-  border-radius: 10px;
-  padding: 6px 10px;
-  color: #5f748f;
+  padding: 0;
+  color: #5f6b7b;
   background: transparent;
   cursor: pointer;
 }
 
-.icon-btn:hover {
-  background: #f2f7ff;
-}
-
 .icon-btn img {
-  width: 22px;
-  height: 22px;
+  width: 24px;
+  height: 24px;
   object-fit: contain;
 }
 
@@ -233,60 +245,46 @@ h1 {
 }
 
 .block {
-  margin-top: 24px;
+  margin-top: 26px;
 }
 
 h2 {
   margin: 0 0 14px;
-  font-size: 40px;
-  color: #1c2f47;
+  font-size: 30px;
+  color: #232c38;
 }
 
 h3 {
-  margin: 14px 0 8px;
-  color: #2f4667;
-  font-size: 20px;
+  margin: 14px 0 10px;
+  color: #2f3b4c;
+  font-size: 22px;
 }
 
 p {
   margin: 0;
-  color: #4f627e;
+  color: #414e5f;
+  font-size: 16px;
   line-height: 1.75;
 }
 
 .table {
-  border: 1px solid #e3eaf6;
-  border-radius: 10px;
-  overflow: hidden;
+  border-top: 1px solid #edf1f6;
 }
 
 .row {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: 1fr 3fr;
 }
 
 .row span {
-  border-bottom: 1px solid #e8eef8;
-  padding: 12px 14px;
-  color: #526580;
+  border-bottom: 1px solid #edf1f6;
+  padding: 14px 10px;
+  color: #4a5668;
 }
 
 .row.head span {
-  color: #7388a2;
+  color: #6f7c90;
   font-weight: 600;
-  background: #f6f9fe;
-}
-
-ul {
-  margin: 0;
-  padding-left: 20px;
-  color: #40566f;
-  line-height: 1.8;
-}
-
-.link {
-  word-break: break-all;
-  color: #375a86;
 }
 
 .actions,
@@ -295,21 +293,25 @@ ul {
 }
 
 .back {
-  border: 1px solid #c8d7ee;
+  border: 1px solid #d3dae5;
   border-radius: 8px;
   padding: 8px 12px;
-  color: #335276;
+  color: #3b4b61;
   background: #fff;
   cursor: pointer;
 }
 
 @media (max-width: 900px) {
   h1 {
-    font-size: 32px;
+    font-size: 30px;
   }
 
   h2 {
-    font-size: 28px;
+    font-size: 26px;
+  }
+
+  h3 {
+    font-size: 20px;
   }
 
   .detail-head {
@@ -317,7 +319,7 @@ ul {
   }
 
   .row {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr 2fr;
   }
 }
 </style>
