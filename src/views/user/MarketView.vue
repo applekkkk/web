@@ -74,14 +74,12 @@ function toggleFavorite(item) {
 }
 
 function handleDownload(item) {
+  if (!item.purchased) {
+    ElMessage.warning("未购买");
+    return;
+  }
   item.downloads = (item.downloads ?? 0) + 1;
   ElMessage.success("下载成功");
-}
-
-function handleBuy(item) {
-  if (item.purchased) return;
-  item.purchased = true;
-  ElMessage.success("购买成功");
 }
 
 function goDetail(id) {
@@ -153,16 +151,22 @@ function goDetail(id) {
 
             <div class="stats" @click.stop>
               <button type="button" class="stat-item" @click="toggleLike(item)">
-                <img class="stat-icon" :src="item.liked ? '/img/liked.png' : '/img/like.png'" alt="点赞" />
-                <span>{{ item.likes ?? 0 }}</span>
+                <span class="stat-icon-wrap">
+                  <img class="stat-icon" :src="item.liked ? '/img/liked.png' : '/img/like.png'" alt="点赞" />
+                </span>
+                <span class="stat-value">{{ item.likes ?? 0 }}</span>
               </button>
               <button type="button" class="stat-item" @click="toggleFavorite(item)">
-                <img class="stat-icon" :src="item.favorited ? '/img/favorited.png' : '/img/favorite.png'" alt="收藏" />
-                <span>{{ item.stars ?? 0 }}</span>
+                <span class="stat-icon-wrap">
+                  <img class="stat-icon" :src="item.favorited ? '/img/favorited.png' : '/img/favorite.png'" alt="收藏" />
+                </span>
+                <span class="stat-value">{{ item.stars ?? 0 }}</span>
               </button>
-              <button type="button" class="stat-item" @click="item.purchased ? handleDownload(item) : handleBuy(item)">
-                <img class="stat-icon" :src="item.purchased ? '/img/download.png' : '/img/buy.png'" :alt="item.purchased ? '下载' : '购买'" />
-                <span>{{ item.purchased ? (item.downloads ?? 0) : `${item.price} 积分` }}</span>
+              <button type="button" class="stat-item" @click="handleDownload(item)">
+                <span class="stat-icon-wrap">
+                  <img class="stat-icon" src="/img/download.png" alt="下载" />
+                </span>
+                <span class="stat-value">{{ item.downloads ?? 0 }}</span>
               </button>
             </div>
           </div>
@@ -362,6 +366,7 @@ function goDetail(id) {
   border: none;
   border-radius: 8px;
   padding: 4px 6px;
+  min-width: 88px;
   color: inherit;
   background: transparent;
   cursor: pointer;
@@ -371,10 +376,26 @@ function goDetail(id) {
   background: #f5f7fb;
 }
 
+.stat-icon-wrap {
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
 .stat-icon {
   width: 24px;
   height: 24px;
+  display: block;
   object-fit: contain;
+}
+
+.stat-value {
+  min-width: 34px;
+  text-align: left;
+  white-space: nowrap;
 }
 
 .empty {

@@ -56,7 +56,10 @@ function toggleFavorite() {
 }
 
 function handleDownload() {
-  if (!dataset.value?.purchased) return;
+  if (!dataset.value?.purchased) {
+    ElMessage.warning("未购买");
+    return;
+  }
   if (!dataset.value) return;
   dataset.value.downloads = (dataset.value.downloads ?? 0) + 1;
   ElMessage.success("下载成功");
@@ -102,16 +105,15 @@ function onAuthorAvatarError(event) {
             <img :src="dataset.favorited ? '/img/favorited.png' : '/img/favorite.png'" alt="收藏" />
             <span>{{ dataset.stars ?? 0 }}</span>
           </button>
-          <button type="button" class="icon-btn" @click="dataset.purchased ? handleDownload() : handleBuy()">
-            <img :src="dataset.purchased ? '/img/download.png' : '/img/buy.png'" :alt="dataset.purchased ? '下载' : '购买'" />
-            <span>{{ dataset.purchased ? (dataset.downloads ?? 0) : `${dataset.price} 积分` }}</span>
+          <button type="button" class="icon-btn" @click="handleDownload">
+            <img src="/img/download.png" alt="下载" />
+            <span>{{ dataset.downloads ?? 0 }}</span>
           </button>
         </div>
       </div>
 
-      <button class="download" @click="dataset.purchased ? handleDownload() : handleBuy()">
-        {{ dataset.purchased ? "下载数据集" : "购买数据集" }}
-      </button>
+      <button v-if="!dataset.purchased" class="download" @click="handleBuy">购买数据集</button>
+      <button v-else class="purchased" type="button" disabled>已购买</button>
     </header>
 
     <section class="block">
@@ -242,6 +244,14 @@ h1 {
   color: #b98335;
   background: #fff;
   cursor: pointer;
+}
+
+.purchased {
+  border: 1px solid #3aaa5d;
+  border-radius: 999px;
+  padding: 8px 16px;
+  color: #fff;
+  background: #3aaa5d;
 }
 
 .block {
