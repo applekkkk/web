@@ -1,4 +1,4 @@
-import { computed, ref } from "vue";
+﻿import { computed, ref } from "vue";
 import { defineStore } from "pinia";
 
 const TOKEN_KEY = "trade-token";
@@ -22,10 +22,22 @@ export const useAuthStore = defineStore("auth", () => {
       id: role === "admin" ? 1 : 1001,
       name: role === "admin" ? "平台管理员" : "普通用户",
       role,
-      points: role === "admin" ? 0 : 1800
+      points: role === "admin" ? 0 : 1800,
+      avatar: "/img/avatar.png",
+      bio: "",
+      password: form.password
     };
 
     localStorage.setItem(TOKEN_KEY, token.value);
+    localStorage.setItem(USER_KEY, JSON.stringify(user.value));
+  }
+
+  function updateProfile(payload) {
+    if (!user.value) return;
+    user.value = {
+      ...user.value,
+      ...payload
+    };
     localStorage.setItem(USER_KEY, JSON.stringify(user.value));
   }
 
@@ -41,6 +53,7 @@ export const useAuthStore = defineStore("auth", () => {
     user,
     isLoggedIn,
     login,
+    updateProfile,
     logout
   };
 });

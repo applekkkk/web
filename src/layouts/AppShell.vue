@@ -20,14 +20,15 @@ const userMenus = [
   { to: "/user/custom-requests", label: "需求发布" },
   { to: "/user/custom-bids", label: "需求承接" },
   { to: "/user/processing", label: "数据处理" },
-  { to: "/user/analytics", label: "分析展示" }
+  { to: "/user/profile", label: "个人中心" }
 ];
 
 const adminMenus = [
   { to: "/admin/dashboard", label: "管理概览" },
   { to: "/admin/review", label: "数据审核" },
   { to: "/admin/users", label: "用户管理" },
-  { to: "/admin/orders", label: "订单监管" }
+  { to: "/admin/orders", label: "订单监管" },
+  { to: "/admin/profile", label: "个人中心" }
 ];
 
 const menus = computed(() => (isAdmin.value ? adminMenus : userMenus));
