@@ -3,6 +3,8 @@ import { computed, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useAuthStore } from "../../stores/auth";
 import { marketData } from "../../mock/data";
+import { ElMessage } from "element-plus";
+import DatasetCard from "../../components/DatasetCard.vue";
 
 const route = useRoute();
 const router = useRouter();
@@ -53,6 +55,33 @@ function goDatasetDetail(id) {
   if (route.path.startsWith("/admin")) return;
   router.push(`/user/market/${id}`);
 }
+
+function toggleLike(item) {
+  if (item.liked) {
+    item.likes = Math.max(0, (item.likes ?? 0) - 1);
+  } else {
+    item.likes = (item.likes ?? 0) + 1;
+  }
+  item.liked = !item.liked;
+}
+
+function toggleFavorite(item) {
+  if (item.favorited) {
+    item.stars = Math.max(0, (item.stars ?? 0) - 1);
+  } else {
+    item.stars = (item.stars ?? 0) + 1;
+  }
+  item.favorited = !item.favorited;
+}
+
+function handleDownload(item) {
+  if (!item.purchased) {
+    ElMessage.warning("未购买");
+    return;
+  }
+  item.downloads = (item.downloads ?? 0) + 1;
+  ElMessage.success("下载成功");
+}
 </script>
 
 <template>
@@ -84,25 +113,15 @@ function goDatasetDetail(id) {
 
     <template v-if="showDatasetCards">
       <section v-if="tabDatasets.length" class="cards-grid">
-        <article v-for="item in tabDatasets" :key="item.id" class="card" @click="goDatasetDetail(item.id)">
-          <div class="card-main">
-            <h3>{{ item.name }}</h3>
-            <div class="pill-row">
-              <span class="pill">{{ item.category }}</span>
-              <span v-for="tag in String(item.tags).split(',')" :key="`${item.id}-${tag}`" class="pill">
-                {{ tag.trim() }}
-              </span>
-            </div>
-            <p class="info">{{ item.info }}</p>
-            <div class="publisher">
-              <span>{{ item.author || item.seller }}</span>
-              <span>·</span>
-              <span>{{ item.uploadDate }}</span>
-              <span>·</span>
-              <span>{{ item.price }} 积分</span>
-            </div>
-          </div>
-        </article>
+        <DatasetCard
+          v-for="item in tabDatasets"
+          :key="item.id"
+          :item="item"
+          @open="goDatasetDetail(item.id)"
+          @like="toggleLike"
+          @favorite="toggleFavorite"
+          @download="handleDownload"
+        />
       </section>
       <p v-else class="empty-text">当前栏目暂无数据。</p>
     </template>
@@ -209,52 +228,6 @@ function goDatasetDetail(id) {
   display: flex;
   flex-direction: column;
   gap: 10px;
-}
-
-.card {
-  border: 1px solid #eaedf3;
-  border-radius: 14px;
-  padding: 14px;
-  background: #fff;
-  cursor: pointer;
-}
-
-.card-main h3 {
-  margin: 0;
-  color: #202a36;
-  font-size: 24px;
-}
-
-.pill-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 10px;
-}
-
-.pill {
-  border: 1px solid #e2e7ef;
-  border-radius: 8px;
-  padding: 4px 10px;
-  color: #4e5d70;
-  font-size: 13px;
-  background: #fff;
-}
-
-.info {
-  margin: 10px 0 0;
-  color: #515d6d;
-  font-size: 14px;
-  line-height: 1.7;
-}
-
-.publisher {
-  margin-top: 10px;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  color: #6a7484;
-  font-size: 13px;
 }
 
 .empty-text {
