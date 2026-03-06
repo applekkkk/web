@@ -1,4 +1,4 @@
-﻿<script setup>
+<script setup>
 import { computed, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useAuthStore } from "../../stores/auth";
@@ -160,11 +160,6 @@ function handleDownload(item) {
   font-size: 40px;
 }
 
-.meta {
-  margin: 8px 0 0;
-  color: #5f6d7e;
-}
-
 .intro {
   margin: 10px 0 0;
   color: #8a96a6;
@@ -210,12 +205,6 @@ function handleDownload(item) {
 .tab-btn.active {
   color: #2c7cf6;
   border-bottom-color: #2c7cf6;
-}
-
-.content-title {
-  margin: 0;
-  color: #1f2a37;
-  font-size: 20px;
 }
 
 .content-tip {
