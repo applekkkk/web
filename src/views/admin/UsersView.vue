@@ -1,10 +1,8 @@
 ﻿<script setup>
 import { computed, ref } from "vue";
-import { useRouter } from "vue-router";
 import PanelCard from "../../components/PanelCard.vue";
 import { adminUsers } from "../../mock/data";
 
-const router = useRouter();
 const keyword = ref("");
 const users = ref(adminUsers.map((item) => ({ ...item })));
 
@@ -26,9 +24,9 @@ function statusClass(status) {
   return "pending";
 }
 
-function openUserDetail(item) {
-  const url = router.resolve({ name: "admin-user-detail", params: { id: item.id } }).href;
-  window.open(url, "_blank");
+function changeStatus(item) {
+  // 这里将来可以调用接口
+  console.log("修改状态", item.id, item.status);
 }
 </script>
 
@@ -48,18 +46,33 @@ function openUserDetail(item) {
           <th>操作</th>
         </tr>
       </thead>
+
       <tbody>
-        <tr v-for="item in filteredUsers" :key="item.id" class="click-row" @click="openUserDetail(item)">
-          <td>{{ item.id }}</td>
-          <td>{{ item.name }}</td>
-          <td>{{ item.role }}</td>
-          
-          <td>
-            <span class="status-pill" :class="statusClass(item.status)">{{ item.status }}</span>
-          </td>
-        </tr>
-        
-      </tbody>
+  <tr v-for="item in filteredUsers" :key="item.id">
+    <td>{{ item.id }}</td>
+    <td>{{ item.name }}</td>
+    <td>{{ item.role }}</td>
+
+    <td>
+      <span class="status-pill" :class="statusClass(item.status)">
+        {{ item.status }}
+      </span>
+    </td>
+
+    <td>
+      <el-select
+        v-model="item.status"
+        size="small"
+        style="width:120px"
+        @change="changeStatus(item)"
+      >
+        <el-option label="正常" value="正常" />
+        <el-option label="限制上传" value="限制上传" />
+        <el-option label="封禁" value="封禁" />
+      </el-select>
+    </td>
+  </tr>
+</tbody>
     </table>
   </PanelCard>
 </template>
@@ -91,6 +104,24 @@ td {
   font-size: 13px;
 }
 
+.actions button {
+  margin-right: 6px;
+  border: 1px solid #d5deeb;
+  background: white;
+  border-radius: 6px;
+  padding: 4px 8px;
+  cursor: pointer;
+}
+
+.actions button:hover {
+  background: #f5f8ff;
+}
+
+.actions .danger {
+  color: #c0392b;
+  border-color: #e5bcbc;
+}
+
 .status-pill {
   display: inline-block;
   border: 1px solid #d6deeb;
@@ -120,13 +151,5 @@ td {
   color: #a74141;
   background: #fdeeee;
   border-color: #f1c5c5;
-}
-
-.click-row {
-  cursor: pointer;
-}
-
-.click-row:hover {
-  background: #f8fbff;
 }
 </style>
