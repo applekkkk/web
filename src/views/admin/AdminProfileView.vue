@@ -2,7 +2,6 @@
 import { computed } from "vue";
 import { useRouter } from "vue-router";
 import { useAuthStore } from "../../stores/auth";
-import PanelCard from "../../components/PanelCard.vue";
 import { pendingReviews, orderList } from "../../mock/data";
 
 const router = useRouter();
@@ -10,8 +9,9 @@ const auth = useAuthStore();
 
 const avatarUrl = computed(() => auth.user?.avatar || "/img/avatar.png");
 const userName = computed(() => auth.user?.name || "平台管理员");
+const lastLogin = "2026-03-09";
 
-const stats = computed(() => [
+const rows = computed(() => [
   { label: "待审核数据", value: pendingReviews.length },
   { label: "交易订单", value: orderList.length },
   { label: "活跃用户", value: 218 },
@@ -29,20 +29,19 @@ function goEditProfile() {
 
 <template>
   <section class="admin-profile">
-    <div class="card">
+    <aside class="profile-block">
       <img class="avatar" :src="avatarUrl" alt="管理员头像" @error="onAvatarError" />
-      <div class="content">
-        <h1>{{ userName }}</h1>
-        <p>管理端账号资料</p>
-      </div>
+      <h1>{{ userName }}</h1>
+      <p class="role">系统管理员</p>
+      <p class="meta">上次登录：{{ lastLogin }}</p>
       <button class="edit-btn" @click="goEditProfile">编辑个人资料</button>
-    </div>
+    </aside>
 
-    <section class="stats-grid">
-      <PanelCard v-for="item in stats" :key="item.label">
-        <div class="stat-label">{{ item.label }}</div>
-        <div class="stat-value">{{ item.value }}</div>
-      </PanelCard>
+    <section class="overview-block">
+      <article v-for="item in rows" :key="item.label" class="overview-card">
+        <span class="row-label">{{ item.label }}</span>
+        <span class="row-value">{{ item.value }}</span>
+      </article>
     </section>
   </section>
 </template>
@@ -50,41 +49,52 @@ function goEditProfile() {
 <style scoped>
 .admin-profile {
   display: grid;
-  gap: 14px;
+  grid-template-columns: 360px 1fr;
+  gap: 24px;
+  align-items: stretch;
+  min-height: 360px;
 }
 
-.card {
-  display: flex;
-  align-items: center;
-  gap: 14px;
+.profile-block {
   border: 1px solid #dbe4f3;
   border-radius: 14px;
-  padding: 18px;
+  padding: 22px 20px;
   background: #fff;
+  display: grid;
+  justify-items: start;
+  gap: 10px;
+  align-content: start;
+  height: 360px;
+  box-sizing: border-box;
 }
 
 .avatar {
-  width: 64px;
-  height: 64px;
-  border-radius: 50%;
+  width: 86px;
+  height: 86px;
+  border-radius: 14px;
   object-fit: cover;
 }
 
-.content {
-  flex: 1;
-}
-
-.content h1 {
-  margin: 0;
-  color: #1f2a37;
-}
-
-.content p {
+h1 {
   margin: 6px 0 0;
-  color: #6e7f97;
+  color: #1f2a37;
+  font-size: 30px;
+}
+
+.role {
+  margin: 0;
+  color: #476487;
+  font-size: 14px;
+}
+
+.meta {
+  margin: 0;
+  color: #7a8ea9;
+  font-size: 13px;
 }
 
 .edit-btn {
+  margin-top: 8px;
   border: 1px solid #c3d3ee;
   border-radius: 999px;
   padding: 8px 16px;
@@ -93,21 +103,56 @@ function goEditProfile() {
   cursor: pointer;
 }
 
-.stats-grid {
+.overview-block {
   display: grid;
-  gap: 14px;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  grid-template-columns: 1fr;
+  grid-template-rows: repeat(4, 1fr);
+  gap: 18px;
+  align-content: stretch;
+  height: 360px;
 }
 
-.stat-label {
+.overview-card {
+  border: 1px solid #dce5f2;
+  border-radius: 14px;
+  padding: 0 20px;
+  background: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.row-label {
   color: #5f728f;
-  font-size: 14px;
+  font-size: 26px;
+  line-height: 1;
+  font-weight: 500;
 }
 
-.stat-value {
-  margin-top: 6px;
-  font-size: 28px;
+.row-value {
   color: #1f4a80;
-  font-weight: 700;
+  font-size: 34px;
+  line-height: 1;
+  font-weight: 600;
+}
+
+@media (max-width: 960px) {
+  .admin-profile {
+    grid-template-columns: 1fr;
+    min-height: auto;
+  }
+
+  .overview-block {
+    grid-template-columns: 1fr;
+    grid-template-rows: none;
+    height: auto;
+  }
+
+  .profile-block {
+    height: auto;
+    min-height: 320px;
+  }
 }
 </style>

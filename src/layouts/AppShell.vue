@@ -24,7 +24,7 @@ const userMenus = [
 const adminMenus = [
   { to: "/admin/review", label: "数据审核" },
   { to: "/admin/users", label: "用户管理" },
-  { to: "/admin/orders", label: "订单监管" },
+  { to: "/admin/orders", label: "订单监控" },
   { to: "/admin/profile", label: "个人中心" }
 ];
 

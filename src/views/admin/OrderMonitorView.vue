@@ -1,6 +1,20 @@
-<script setup>
+﻿<script setup>
+import { computed, ref } from "vue";
 import PanelCard from "../../components/PanelCard.vue";
 import { orderList } from "../../mock/data";
+
+const keyword = ref("");
+const orders = ref(orderList.map((item) => ({ ...item })));
+
+const filteredOrders = computed(() => {
+  const k = keyword.value.trim().toLowerCase();
+  if (!k) return orders.value;
+  return orders.value.filter(
+    (item) =>
+      String(item.id).toLowerCase().includes(k) ||
+      String(item.dataset).toLowerCase().includes(k)
+  );
+});
 
 function statusClass(status) {
   if (status === "已支付") return "done";
@@ -12,6 +26,10 @@ function statusClass(status) {
 
 <template>
   <PanelCard>
+    <div class="toolbar">
+      <input v-model="keyword" type="text" placeholder="搜索订单号/数据集" />
+    </div>
+
     <table>
       <thead>
         <tr>
@@ -23,7 +41,7 @@ function statusClass(status) {
         </tr>
       </thead>
       <tbody>
-        <tr v-for="item in orderList" :key="item.id">
+        <tr v-for="item in filteredOrders" :key="item.id">
           <td>{{ item.id }}</td>
           <td>{{ item.dataset }}</td>
           <td>{{ item.amount }}</td>
@@ -38,6 +56,19 @@ function statusClass(status) {
 </template>
 
 <style scoped>
+.toolbar {
+  margin-bottom: 12px;
+}
+
+.toolbar input {
+  width: 320px;
+  max-width: 100%;
+  border: 1px solid #d5deeb;
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 13px;
+}
+
 table {
   width: 100%;
   border-collapse: collapse;

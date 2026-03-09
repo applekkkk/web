@@ -25,6 +25,7 @@ const tabs = [
 const activeTab = ref(tabs[0]);
 const avatarUrl = computed(() => auth.user?.avatar || "/img/avatar.png");
 const userName = computed(() => auth.user?.name || "未命名用户");
+const userPoints = computed(() => Number(auth.user?.points ?? 0));
 const userId = computed(() => auth.user?.id ?? null);
 const userBio = computed(() => auth.user?.bio || "快来介绍一下自己");
 const today = new Date().toISOString().slice(0, 10);
@@ -126,6 +127,7 @@ function handleDownload(item) {
         <p class="intro">{{ userBio }}</p>
       </div>
       <div class="head-right">
+        <span class="points">积分：{{ userPoints }}</span>
         <span class="last-login">上次登录时间：{{ today }}</span>
         <button class="edit-btn" @click="goEditProfile">编辑个人资料</button>
       </div>
@@ -222,6 +224,12 @@ function handleDownload(item) {
 .last-login {
   color: #8091a8;
   font-size: 14px;
+}
+
+.points {
+  color: #2f578d;
+  font-size: 14px;
+  font-weight: 600;
 }
 
 .edit-btn {

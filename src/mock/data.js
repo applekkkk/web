@@ -86,7 +86,7 @@ export const pendingReviews = [
     dataset: "短视频传播网络样本",
     owner: "node-lee",
     submittedAt: "2026-02-24 14:20",
-    status: "待审核"
+    status: "审核中"
   },
   {
     id: "R-1009",
@@ -94,6 +94,13 @@ export const pendingReviews = [
     owner: "nlp-wang",
     submittedAt: "2026-02-25 09:40",
     status: "待审核"
+  },
+  {
+    id: "R-1010",
+    dataset: "城市交通轨迹样本",
+    owner: "city-open",
+    submittedAt: "2026-02-25 13:10",
+    status: "驳回"
   }
 ];
 
@@ -111,6 +118,39 @@ export const orderList = [
     amount: 260,
     status: "处理中",
     createdAt: "2026-02-25 10:12"
+  }
+];
+
+export const adminUsers = [
+  {
+    id: 1001,
+    name: "普通用户A",
+    role: "user",
+    points: 860,
+    status: "正常",
+    phone: "13800000001",
+    email: "usera@example.com",
+    joinedAt: "2026-01-12 09:20"
+  },
+  {
+    id: 1002,
+    name: "普通用户B",
+    role: "user",
+    points: 420,
+    status: "限制上传",
+    phone: "13800000002",
+    email: "userb@example.com",
+    joinedAt: "2026-01-20 11:40"
+  },
+  {
+    id: 1,
+    name: "平台管理员",
+    role: "admin",
+    points: 9999,
+    status: "正常",
+    phone: "13800000000",
+    email: "admin@example.com",
+    joinedAt: "2025-12-01 08:00"
   }
 ];
 

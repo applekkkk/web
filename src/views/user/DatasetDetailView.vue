@@ -7,6 +7,9 @@ import { ElMessage } from "element-plus";
 const route = useRoute();
 const router = useRouter();
 const dataset = ref(null);
+const reviewStatus = ref("待审核");
+const reviewStatusOptions = ["待审核", "审核中", "通过", "驳回"];
+const isAdminView = computed(() => route.path.startsWith("/admin"));
 
 const sourceDataset = computed(() => {
   const id = Number(route.params.id);
@@ -17,6 +20,15 @@ watch(
   sourceDataset,
   (val) => {
     dataset.value = val ? { ...val } : null;
+  },
+  { immediate: true }
+);
+
+watch(
+  () => route.query.reviewStatus,
+  (val) => {
+    const next = String(val || "").trim();
+    if (reviewStatusOptions.includes(next)) reviewStatus.value = next;
   },
   { immediate: true }
 );
@@ -52,7 +64,7 @@ function toggleFavorite() {
 }
 
 function handleDownload() {
-  if (!dataset.value?.purchased) {
+  if (!isAdminView.value && !dataset.value?.purchased) {
     ElMessage.warning("未购买");
     return;
   }
@@ -108,7 +120,10 @@ function onAuthorAvatarError(event) {
         </div>
       </div>
 
-      <button v-if="!dataset.purchased" class="download" @click="handleBuy">购买数据集</button>
+      <el-select v-if="isAdminView" v-model="reviewStatus" class="status-select" placeholder="审核状态">
+        <el-option v-for="s in reviewStatusOptions" :key="s" :label="s" :value="s" />
+      </el-select>
+      <button v-else-if="!dataset.purchased" class="download" @click="handleBuy">购买数据集</button>
       <button v-else class="purchased" type="button" disabled>已购买</button>
     </header>
 
@@ -244,6 +259,10 @@ h1 {
   padding: 8px 16px;
   color: #fff;
   background: #3aaa5d;
+}
+
+.status-select {
+  width: 140px;
 }
 
 .block {

@@ -1,11 +1,23 @@
-<script setup>
+﻿<script setup>
+import { computed, ref } from "vue";
+import { useRouter } from "vue-router";
 import PanelCard from "../../components/PanelCard.vue";
+import { adminUsers } from "../../mock/data";
 
-const users = [
-  { id: 1001, name: "普通用户A", role: "user", status: "正常" },
-  { id: 1002, name: "普通用户B", role: "user", status: "限制上传" },
-  { id: 1, name: "平台管理员", role: "admin", status: "正常" }
-];
+const router = useRouter();
+const keyword = ref("");
+const users = ref(adminUsers.map((item) => ({ ...item })));
+
+const filteredUsers = computed(() => {
+  const k = keyword.value.trim().toLowerCase();
+  if (!k) return users.value;
+  return users.value.filter(
+    (item) =>
+      String(item.id).toLowerCase().includes(k) ||
+      String(item.name).toLowerCase().includes(k) ||
+      String(item.role).toLowerCase().includes(k)
+  );
+});
 
 function statusClass(status) {
   if (status === "正常") return "done";
@@ -13,10 +25,19 @@ function statusClass(status) {
   if (status === "封禁") return "rejected";
   return "pending";
 }
+
+function openUserDetail(item) {
+  const url = router.resolve({ name: "admin-user-detail", params: { id: item.id } }).href;
+  window.open(url, "_blank");
+}
 </script>
 
 <template>
   <PanelCard>
+    <div class="toolbar">
+      <input v-model="keyword" type="text" placeholder="搜索用户ID/用户名/角色" />
+    </div>
+
     <table>
       <thead>
         <tr>
@@ -24,23 +45,39 @@ function statusClass(status) {
           <th>名称</th>
           <th>角色</th>
           <th>状态</th>
+          <th>操作</th>
         </tr>
       </thead>
       <tbody>
-        <tr v-for="item in users" :key="item.id">
+        <tr v-for="item in filteredUsers" :key="item.id" class="click-row" @click="openUserDetail(item)">
           <td>{{ item.id }}</td>
           <td>{{ item.name }}</td>
           <td>{{ item.role }}</td>
+          
           <td>
             <span class="status-pill" :class="statusClass(item.status)">{{ item.status }}</span>
           </td>
         </tr>
+        
       </tbody>
     </table>
   </PanelCard>
 </template>
 
 <style scoped>
+.toolbar {
+  margin-bottom: 12px;
+}
+
+.toolbar input {
+  width: 320px;
+  max-width: 100%;
+  border: 1px solid #d5deeb;
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 13px;
+}
+
 table {
   width: 100%;
   border-collapse: collapse;
@@ -83,5 +120,13 @@ td {
   color: #a74141;
   background: #fdeeee;
   border-color: #f1c5c5;
+}
+
+.click-row {
+  cursor: pointer;
+}
+
+.click-row:hover {
+  background: #f8fbff;
 }
 </style>
