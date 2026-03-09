@@ -118,15 +118,65 @@ export const customNeeds = [
   {
     id: "CUST-001",
     title: "短视频平台用户互动图",
+    description: "需要构建用户互动关系网络，包含点赞、评论、转发边，输出可分析的图结构数据。",
+    tags: "graph,短视频,互动",
+    amount: "120000",
     budget: 800,
     deadline: "2026-03-15",
-    status: "招募中"
+    category: "图数据",
+    publisher: "普通用户",
+    publisherId: 1002,
+    publisherContact: "user_demo@demo.com",
+    attachmentName: "need_example.csv",
+    needStatus: "未承接",
+    acceptedBy: ""
   },
   {
     id: "CUST-002",
     title: "学术合作关系网络",
+    description: "按论文与作者信息构建合作网络，支持时间切片与社区分析。",
+    tags: "学术,合作网络",
+    amount: "86000",
     budget: 1200,
     deadline: "2026-03-20",
-    status: "已承接"
+    category: "图数据",
+    publisher: "科研中心",
+    publisherId: 2001,
+    publisherContact: "13800138000",
+    attachmentName: "coauthor_sample.csv",
+    needStatus: "进行中",
+    acceptedBy: "数据工坊A"
+  },
+  {
+    id: "CUST-003",
+    title: "城市出租车轨迹清洗任务",
+    description: "需要对原始轨迹数据进行去噪、补点和异常值剔除，并输出按天分片的数据文件。",
+    tags: "轨迹,清洗,时空",
+    amount: "250000",
+    budget: 950,
+    deadline: "2026-03-25",
+    category: "时空",
+    publisher: "城市实验室",
+    publisherId: 3001,
+    publisherContact: "citylab@example.com",
+    attachmentName: "taxi_sample.csv",
+    needStatus: "已完成",
+    acceptedBy: "交付团队B"
+  },
+  {
+    id: "CUST-004",
+    title: "校园食堂客流预测数据整理任务",
+    description: "需要按周汇总校园食堂客流与时段特征，输出可用于预测建模的训练数据集。",
+    tags: "预测,时间序列,客流",
+    amount: "48000",
+    budget: 680,
+    deadline: "2026-03-28",
+    category: "时空",
+    publisher: "普通用户",
+    publisherId: 1001,
+    publisherContact: "student_user@example.com",
+    attachmentName: "canteen_example.csv",
+    needStatus: "未承接",
+    acceptedBy: ""
   }
 ];

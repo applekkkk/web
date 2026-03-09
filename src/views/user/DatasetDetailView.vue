@@ -31,10 +31,6 @@ const tags = computed(() => {
 
 const authorAvatarUrl = computed(() => dataset.value?.authorAvatar || "/img/avatar.png");
 
-function backToMarket() {
-  router.push("/user/market");
-}
-
 function toggleLike() {
   if (!dataset.value) return;
   if (dataset.value.liked) {
@@ -135,14 +131,10 @@ function onAuthorAvatarError(event) {
       </div>
     </section>
 
-    <div class="actions">
-      <button class="back" @click="backToMarket">返回数据广场</button>
-    </div>
   </section>
 
   <section v-else class="empty">
     <p>未找到对应数据集。</p>
-    <button class="back" @click="backToMarket">返回数据广场</button>
   </section>
 </template>
 
@@ -297,18 +289,8 @@ p {
   font-weight: 600;
 }
 
-.actions,
 .empty {
   margin-top: 24px;
-}
-
-.back {
-  border: 1px solid #d3dae5;
-  border-radius: 8px;
-  padding: 8px 12px;
-  color: #3b4b61;
-  background: #fff;
-  cursor: pointer;
 }
 
 @media (max-width: 900px) {

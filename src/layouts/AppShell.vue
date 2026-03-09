@@ -1,6 +1,7 @@
 ﻿<script setup>
-import { computed } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
+import { ElMessage } from "element-plus";
 import { useAuthStore } from "../stores/auth";
 
 const route = useRoute();
@@ -14,17 +15,13 @@ const userMenus = [
   { to: "/user/dashboard", label: "工作台" },
   { to: "/user/market", label: "数据市场" },
   { to: "/user/upload", label: "数据上传" },
-  { to: "/user/orders", label: "交易订单" },
-  { to: "/user/wallet", label: "积分结算" },
-  { to: "/user/warehouse", label: "个人仓库" },
-  { to: "/user/custom-requests", label: "需求发布" },
-  { to: "/user/custom-bids", label: "需求承接" },
+  { to: "/user/custom-bids", label: "任务市场" },
+  { to: "/user/custom-requests", label: "任务发布" },
   { to: "/user/processing", label: "数据处理" },
   { to: "/user/profile", label: "个人中心" }
 ];
 
 const adminMenus = [
-  { to: "/admin/dashboard", label: "管理概览" },
   { to: "/admin/review", label: "数据审核" },
   { to: "/admin/users", label: "用户管理" },
   { to: "/admin/orders", label: "订单监管" },
@@ -33,6 +30,8 @@ const adminMenus = [
 
 const menus = computed(() => (isAdmin.value ? adminMenus : userMenus));
 const avatarUrl = computed(() => auth.user?.avatar || "/img/avatar.png");
+const checkInText = computed(() => (auth.canDailyCheckIn ? "每日签到 +10" : "今日已签到"));
+const avatarMenuOpen = ref(false);
 
 function isActive(path) {
   return route.path === path;
@@ -43,12 +42,51 @@ function navigate(path) {
 }
 
 function goProfile() {
+  avatarMenuOpen.value = false;
   router.push(isAdmin.value ? "/admin/profile" : "/user/profile");
+}
+
+function logout() {
+  avatarMenuOpen.value = false;
+  auth.logout();
+  router.push("/login");
 }
 
 function onAvatarError(event) {
   event.target.src = "/img/avatar.png";
 }
+
+function handleCheckIn() {
+  const result = auth.dailyCheckIn();
+  if (result.ok) {
+    ElMessage.success("签到成功，积分 +10");
+    return;
+  }
+  if (result.reason === "already") {
+    ElMessage.warning("今日已签到");
+    return;
+  }
+  ElMessage.warning("当前账号不可签到");
+}
+
+function toggleAvatarMenu() {
+  avatarMenuOpen.value = !avatarMenuOpen.value;
+}
+
+function onDocumentClick(event) {
+  if (!(event.target instanceof Element)) return;
+  if (!event.target.closest(".avatar-wrap")) {
+    avatarMenuOpen.value = false;
+  }
+}
+
+onMounted(() => {
+  document.addEventListener("click", onDocumentClick);
+});
+
+onBeforeUnmount(() => {
+  document.removeEventListener("click", onDocumentClick);
+});
 </script>
 
 <template>
@@ -74,11 +112,29 @@ function onAvatarError(event) {
       <header class="topbar">
         <div>
           <strong>{{ route.meta.title || "页面" }}</strong>
-          <div class="sub">欢迎，{{ auth.user?.name }}</div>
+          <div class="sub">欢迎，{{ auth.user?.name }}<span v-if="!isAdmin">（积分：{{ auth.user?.points ?? 0 }}）</span></div>
         </div>
-        <button class="avatar-btn" @click="goProfile" :title="'进入个人中心'">
-          <img class="avatar-img" :src="avatarUrl" alt="用户头像" @error="onAvatarError" />
-        </button>
+
+        <div class="topbar-actions">
+          <button
+            v-if="!isAdmin"
+            class="checkin-btn"
+            :class="{ disabled: !auth.canDailyCheckIn }"
+            @click="handleCheckIn"
+          >
+            {{ checkInText }}
+          </button>
+
+          <div class="avatar-wrap">
+            <button class="avatar-btn" @click.stop="toggleAvatarMenu" :title="'用户菜单'">
+              <img class="avatar-img" :src="avatarUrl" alt="用户头像" @error="onAvatarError" />
+            </button>
+            <div v-if="avatarMenuOpen" class="avatar-menu">
+              <button type="button" class="avatar-menu-item" @click="goProfile">进入个人中心</button>
+              <button type="button" class="avatar-menu-item danger" @click="logout">退出登录</button>
+            </div>
+          </div>
+        </div>
       </header>
 
       <main class="content">
@@ -120,12 +176,14 @@ function onAvatarError(event) {
 .menu-item {
   display: block;
   width: 100%;
-  margin-bottom: 8px;
+  margin-bottom: 12px;
   border: none;
-  border-radius: 8px;
-  padding: 9px 10px;
+  border-radius: 10px;
+  padding: 13px 14px;
   color: inherit;
-  font-size: 14px;
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 1.25;
   text-align: left;
   background: transparent;
   cursor: pointer;
@@ -157,6 +215,31 @@ function onAvatarError(event) {
   font-size: 12px;
 }
 
+.topbar-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.checkin-btn {
+  border: 1px solid #c7d7ef;
+  border-radius: 999px;
+  padding: 6px 12px;
+  color: #2f578d;
+  background: #f7fbff;
+  cursor: pointer;
+}
+
+.checkin-btn.disabled {
+  color: #8ca0bc;
+  background: #f4f7fb;
+  cursor: not-allowed;
+}
+
+.avatar-wrap {
+  position: relative;
+}
+
 .avatar-btn {
   width: 36px;
   height: 36px;
@@ -166,6 +249,38 @@ function onAvatarError(event) {
   overflow: hidden;
   background: transparent;
   cursor: pointer;
+}
+
+.avatar-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  min-width: 132px;
+  border: 1px solid #dde5f2;
+  border-radius: 10px;
+  padding: 6px;
+  background: #fff;
+  box-shadow: 0 10px 20px rgba(17, 24, 39, 0.12);
+  z-index: 20;
+}
+
+.avatar-menu-item {
+  width: 100%;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 10px;
+  text-align: left;
+  color: #2d3d54;
+  background: transparent;
+  cursor: pointer;
+}
+
+.avatar-menu-item:hover {
+  background: #f4f7fb;
+}
+
+.avatar-menu-item.danger {
+  color: #b13a3a;
 }
 
 .avatar-img {

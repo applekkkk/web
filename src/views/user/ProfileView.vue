@@ -1,27 +1,31 @@
-<script setup>
-import { computed, ref } from "vue";
+﻿<script setup>
+import { computed, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useAuthStore } from "../../stores/auth";
 import { marketData } from "../../mock/data";
+import { useNeedsStore } from "../../stores/needs";
 import { ElMessage } from "element-plus";
 import DatasetCard from "../../components/DatasetCard.vue";
+import NeedCard from "../../components/NeedCard.vue";
 
 const route = useRoute();
 const router = useRouter();
 const auth = useAuthStore();
+const needsStore = useNeedsStore();
 
 const tabs = [
   "收藏",
   "个人仓库（已购买的数据）",
   "我的数据（本人上传的）",
   "我的订单",
-  "发布需求",
-  "承接需求"
+  "发布任务",
+  "承接任务"
 ];
 
 const activeTab = ref(tabs[0]);
 const avatarUrl = computed(() => auth.user?.avatar || "/img/avatar.png");
 const userName = computed(() => auth.user?.name || "未命名用户");
+const userId = computed(() => auth.user?.id ?? null);
 const userBio = computed(() => auth.user?.bio || "快来介绍一下自己");
 const today = new Date().toISOString().slice(0, 10);
 const marketList = ref(marketData.map((item) => ({ ...item })));
@@ -30,9 +34,21 @@ function goEditProfile() {
   router.push(route.path.startsWith("/admin") ? "/admin/profile/edit" : "/user/profile/edit");
 }
 
+watch(
+  () => route.query.tab,
+  (tab) => {
+    const value = String(tab || "");
+    if (tabs.includes(value)) activeTab.value = value;
+  },
+  { immediate: true }
+);
+
 function onAvatarError(event) {
   event.target.src = "/img/avatar.png";
 }
+
+const datasetTabs = ["收藏", "个人仓库（已购买的数据）", "我的数据（本人上传的）"];
+const needTabs = ["发布任务", "承接任务"];
 
 const tabDatasets = computed(() => {
   if (activeTab.value === "收藏") {
@@ -47,13 +63,30 @@ const tabDatasets = computed(() => {
   return [];
 });
 
-const showDatasetCards = computed(() =>
-  ["收藏", "个人仓库（已购买的数据）", "我的数据（本人上传的）"].includes(activeTab.value)
-);
+const tabNeeds = computed(() => {
+  if (activeTab.value === "发布任务") {
+    return needsStore.allNeeds.filter((item) => {
+      if (item.publisherId != null && userId.value != null) return item.publisherId === userId.value;
+      if (item.publisher === userName.value) return true;
+      return userId.value === 1001 && item.publisher === "普通用户";
+    });
+  }
+  if (activeTab.value === "承接任务") {
+    return needsStore.acceptedNeeds.filter((item) => item.acceptedBy === userName.value);
+  }
+  return [];
+});
 
 function goDatasetDetail(id) {
   if (route.path.startsWith("/admin")) return;
-  router.push(`/user/market/${id}`);
+  const url = router.resolve({ path: `/user/market/${id}` }).href;
+  window.open(url, "_blank");
+}
+
+function goNeedDetail(item) {
+  if (route.path.startsWith("/admin")) return;
+  const url = router.resolve({ path: `/user/custom-bids/${item.id}` }).href;
+  window.open(url, "_blank");
 }
 
 function toggleLike(item) {
@@ -111,7 +144,7 @@ function handleDownload(item) {
       </button>
     </div>
 
-    <template v-if="showDatasetCards">
+    <template v-if="datasetTabs.includes(activeTab)">
       <section v-if="tabDatasets.length" class="cards-grid">
         <DatasetCard
           v-for="item in tabDatasets"
@@ -125,6 +158,21 @@ function handleDownload(item) {
       </section>
       <p v-else class="empty-text">当前栏目暂无数据。</p>
     </template>
+
+    <template v-else-if="needTabs.includes(activeTab)">
+      <section v-if="tabNeeds.length" class="cards-grid">
+        <NeedCard
+          v-for="item in tabNeeds"
+          :key="item.id"
+          :item="item"
+          :show-action="false"
+          clickable
+          @open="goNeedDetail"
+        />
+      </section>
+      <p v-else class="empty-text">当前栏目暂无任务。</p>
+    </template>
+
     <p v-else class="content-tip">该栏目内容正在建设中。</p>
   </section>
 </template>

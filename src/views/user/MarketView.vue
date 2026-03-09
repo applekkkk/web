@@ -84,7 +84,8 @@ function handleDownload(item) {
 }
 
 function goDetail(id) {
-  router.push(`/user/market/${id}`);
+  const url = router.resolve({ path: `/user/market/${id}` }).href;
+  window.open(url, "_blank");
 }
 </script>
 

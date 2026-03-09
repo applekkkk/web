@@ -2,12 +2,21 @@
 import { computed } from "vue";
 import { useRouter } from "vue-router";
 import { useAuthStore } from "../../stores/auth";
+import PanelCard from "../../components/PanelCard.vue";
+import { pendingReviews, orderList } from "../../mock/data";
 
 const router = useRouter();
 const auth = useAuthStore();
 
 const avatarUrl = computed(() => auth.user?.avatar || "/img/avatar.png");
-const userName = computed(() => auth.user?.name || "管理员");
+const userName = computed(() => auth.user?.name || "平台管理员");
+
+const stats = computed(() => [
+  { label: "待审核数据", value: pendingReviews.length },
+  { label: "交易订单", value: orderList.length },
+  { label: "活跃用户", value: 218 },
+  { label: "异常订单", value: 2 }
+]);
 
 function onAvatarError(event) {
   event.target.src = "/img/avatar.png";
@@ -24,16 +33,24 @@ function goEditProfile() {
       <img class="avatar" :src="avatarUrl" alt="管理员头像" @error="onAvatarError" />
       <div class="content">
         <h1>{{ userName }}</h1>
-        <p>管理端账户资料</p>
+        <p>管理端账号资料</p>
       </div>
       <button class="edit-btn" @click="goEditProfile">编辑个人资料</button>
     </div>
+
+    <section class="stats-grid">
+      <PanelCard v-for="item in stats" :key="item.label">
+        <div class="stat-label">{{ item.label }}</div>
+        <div class="stat-value">{{ item.value }}</div>
+      </PanelCard>
+    </section>
   </section>
 </template>
 
 <style scoped>
 .admin-profile {
-  max-width: 720px;
+  display: grid;
+  gap: 14px;
 }
 
 .card {
@@ -74,5 +91,23 @@ function goEditProfile() {
   color: #2f578d;
   background: #fff;
   cursor: pointer;
+}
+
+.stats-grid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.stat-label {
+  color: #5f728f;
+  font-size: 14px;
+}
+
+.stat-value {
+  margin-top: 6px;
+  font-size: 28px;
+  color: #1f4a80;
+  font-weight: 700;
 }
 </style>

@@ -9,6 +9,10 @@ export const useAuthStore = defineStore("auth", () => {
   const user = ref(loadUser());
 
   const isLoggedIn = computed(() => Boolean(token.value));
+  const canDailyCheckIn = computed(() => {
+    if (!user.value || user.value.role === "admin") return false;
+    return user.value.lastCheckInDate !== getTodayLocal();
+  });
 
   function loadUser() {
     const raw = localStorage.getItem(USER_KEY);
@@ -25,7 +29,8 @@ export const useAuthStore = defineStore("auth", () => {
       points: role === "admin" ? 0 : 1800,
       avatar: "/img/avatar.png",
       bio: "",
-      password: form.password
+      password: form.password,
+      lastCheckInDate: ""
     };
 
     localStorage.setItem(TOKEN_KEY, token.value);
@@ -48,12 +53,39 @@ export const useAuthStore = defineStore("auth", () => {
     localStorage.removeItem(USER_KEY);
   }
 
+  function getTodayLocal() {
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = String(now.getMonth() + 1).padStart(2, "0");
+    const d = String(now.getDate()).padStart(2, "0");
+    return `${y}-${m}-${d}`;
+  }
+
+  function dailyCheckIn() {
+    if (!user.value || user.value.role === "admin") {
+      return { ok: false, reason: "forbidden" };
+    }
+    const today = getTodayLocal();
+    if (user.value.lastCheckInDate === today) {
+      return { ok: false, reason: "already" };
+    }
+    user.value = {
+      ...user.value,
+      points: (user.value.points ?? 0) + 10,
+      lastCheckInDate: today
+    };
+    localStorage.setItem(USER_KEY, JSON.stringify(user.value));
+    return { ok: true, points: user.value.points };
+  }
+
   return {
     token,
     user,
     isLoggedIn,
+    canDailyCheckIn,
     login,
     updateProfile,
+    dailyCheckIn,
     logout
   };
 });

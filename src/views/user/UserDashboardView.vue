@@ -5,7 +5,7 @@ const stats = [
   { label: "在售数据集", value: 32 },
   { label: "本月成交订单", value: 18 },
   { label: "可用积分", value: 1800 },
-  { label: "待处理需求", value: 6 }
+  { label: "待处理任务", value: 6 }
 ];
 </script>
 
