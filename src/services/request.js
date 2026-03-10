@@ -1,11 +1,11 @@
 import axios from "axios";
 
-const http = axios.create({
+const request = axios.create({
   baseURL: "/api",
   timeout: 10000
 });
 
-http.interceptors.request.use((config) => {
+request.interceptors.request.use((config) => {
   const token = localStorage.getItem("trade-token");
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
@@ -13,7 +13,7 @@ http.interceptors.request.use((config) => {
   return config;
 });
 
-http.interceptors.response.use(
+request.interceptors.response.use(
   (response) => response.data,
   (error) => {
     const msg = error?.response?.data?.message || "请求失败，请稍后重试";
@@ -21,4 +21,4 @@ http.interceptors.response.use(
   }
 );
 
-export default http;
+export default request;

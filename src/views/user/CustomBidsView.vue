@@ -1,5 +1,5 @@
-﻿<script setup>
-import { computed, ref } from "vue";
+<script setup>
+import { computed, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import NeedCard from "../../components/NeedCard.vue";
 import { useNeedsStore } from "../../stores/needs";
@@ -10,12 +10,16 @@ const needsStore = useNeedsStore();
 const keyword = ref("");
 const activeCategory = ref("全部");
 
+const pageSizeOptions = [6, 9, 12, 20];
+const pageSize = ref(9);
+const currentPage = ref(1);
+
 const categories = computed(() => {
   const set = new Set(needsStore.marketNeeds.map((item) => item.category || "其他"));
   return ["全部", ...set];
 });
 
-const list = computed(() => {
+const filteredList = computed(() => {
   const q = keyword.value.trim().toLowerCase();
   return needsStore.marketNeeds.filter((item) => {
     const hitCategory = activeCategory.value === "全部" || (item.category || "其他") === activeCategory.value;
@@ -23,6 +27,15 @@ const list = computed(() => {
     const hitKeyword = !q || text.includes(q);
     return hitCategory && hitKeyword;
   });
+});
+
+const pagedList = computed(() => {
+  const start = (currentPage.value - 1) * pageSize.value;
+  return filteredList.value.slice(start, start + pageSize.value);
+});
+
+watch([keyword, activeCategory], () => {
+  currentPage.value = 1;
 });
 
 function openNeed(item) {
@@ -52,7 +65,7 @@ function openNeed(item) {
 
     <section class="cards-grid">
       <NeedCard
-        v-for="item in list"
+        v-for="item in pagedList"
         :key="item.id"
         :item="item"
         :show-action="false"
@@ -61,7 +74,18 @@ function openNeed(item) {
       />
     </section>
 
-    <p v-if="list.length === 0" class="empty">暂无可承接任务。</p>
+    <p v-if="filteredList.length === 0" class="empty">暂无可承接任务。</p>
+
+    <div v-else class="pager-row">
+      <el-pagination
+        v-model:current-page="currentPage"
+        v-model:page-size="pageSize"
+        :page-sizes="pageSizeOptions"
+        layout="prev, pager, next, sizes, total"
+        :total="filteredList.length"
+        background
+      />
+    </div>
   </section>
 </template>
 
@@ -116,6 +140,12 @@ function openNeed(item) {
   display: flex;
   flex-direction: column;
   gap: 10px;
+}
+
+.pager-row {
+  margin-top: 8px;
+  display: flex;
+  justify-content: flex-end;
 }
 
 .empty {

@@ -1,5 +1,5 @@
-﻿<script setup>
-import { computed, ref } from "vue";
+<script setup>
+import { computed, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import { marketData } from "../../mock/data";
 import { ElMessage } from "element-plus";
@@ -10,6 +10,10 @@ const activeCategory = ref("All");
 const activeSort = ref("recommend");
 const router = useRouter();
 const marketList = ref(marketData.map((item) => ({ ...item })));
+
+const pageSizeOptions = [6, 9, 12, 20];
+const pageSize = ref(9);
+const currentPage = ref(1);
 
 const categories = computed(() => {
   const uniq = new Set(marketList.value.map((item) => item.category));
@@ -42,6 +46,15 @@ const filteredData = computed(() => {
   }
 
   return list;
+});
+
+const pagedData = computed(() => {
+  const start = (currentPage.value - 1) * pageSize.value;
+  return filteredData.value.slice(start, start + pageSize.value);
+});
+
+watch([keyword, activeCategory, activeSort], () => {
+  currentPage.value = 1;
 });
 
 function parseSize(raw) {
@@ -123,11 +136,14 @@ function goDetail(id) {
       </button>
     </section>
 
-    <p class="result-count">当前 {{ filteredData.length }} 个数据集</p>
+    <p class="result-count">
+      当前共 {{ filteredData.length }} 个数据集，
+      第 {{ currentPage }} / {{ Math.max(1, Math.ceil(filteredData.length / pageSize)) }} 页
+    </p>
 
     <section class="cards-grid">
       <DatasetCard
-        v-for="item in filteredData"
+        v-for="item in pagedData"
         :key="item.id"
         :item="item"
         @open="goDetail(item.id)"
@@ -138,6 +154,17 @@ function goDetail(id) {
     </section>
 
     <p v-if="filteredData.length === 0" class="empty">当前筛选条件下暂无匹配数据集。</p>
+
+    <div v-else class="pager-row">
+      <el-pagination
+        v-model:current-page="currentPage"
+        v-model:page-size="pageSize"
+        :page-sizes="pageSizeOptions"
+        layout="prev, pager, next, sizes, total"
+        :total="filteredData.length"
+        background
+      />
+    </div>
   </section>
 </template>
 
@@ -235,6 +262,12 @@ function goDetail(id) {
   display: flex;
   flex-direction: column;
   gap: 10px;
+}
+
+.pager-row {
+  margin-top: 8px;
+  display: flex;
+  justify-content: flex-end;
 }
 
 .empty {
