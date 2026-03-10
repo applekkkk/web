@@ -25,7 +25,6 @@ const adminRoutes = [
   { path: "review", name: "admin-review", component: () => import("../views/admin/ReviewView.vue"), meta: { title: "数据审核" } },
   { path: "review/:id", name: "admin-review-detail", component: () => import("../views/user/DatasetDetailView.vue"), meta: { title: "数据详情" } },
   { path: "users", name: "admin-users", component: () => import("../views/admin/UsersView.vue"), meta: { title: "用户管理" } },
-  { path: "users/:id", name: "admin-user-detail", component: () => import("../views/admin/UserDetailView.vue"), meta: { title: "用户详情" } },
   { path: "orders", name: "admin-orders", component: () => import("../views/admin/OrderMonitorView.vue"), meta: { title: "订单监控" } },
   { path: "profile", name: "admin-profile", component: () => import("../views/admin/AdminProfileView.vue"), meta: { title: "个人中心" } },
   { path: "profile/edit", name: "admin-profile-edit", component: () => import("../views/common/EditProfileView.vue"), meta: { title: "编辑个人资料" } }

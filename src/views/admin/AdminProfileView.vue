@@ -12,11 +12,14 @@ const userName = computed(() => auth.user?.name || "平台管理员");
 const lastLogin = "2026-03-09";
 
 const rows = computed(() => [
-  { label: "待审核数据", value: pendingReviews.length },
-  { label: "交易订单", value: orderList.length },
-  { label: "活跃用户", value: 218 },
-  { label: "异常订单", value: 2 }
+  { label: "待审核数据", value: pendingReviews.length, route: "admin-review", query: { status: "待审核" } },
+  { label: "交易订单", value: orderList.length, route: "admin-orders" },
+  { label: "用户管理", value: 218, route: "admin-users" },
 ]);
+
+function goToPage(item) {
+  router.push({ name: item.route, query: item.query || {} });
+}
 
 function onAvatarError(event) {
   event.target.src = "/img/avatar.png";
@@ -38,7 +41,7 @@ function goEditProfile() {
     </aside>
 
     <section class="overview-block">
-      <article v-for="item in rows" :key="item.label" class="overview-card">
+      <article v-for="item in rows" :key="item.label" class="overview-card" @click="goToPage(item)">
         <span class="row-label">{{ item.label }}</span>
         <span class="row-value">{{ item.value }}</span>
       </article>
@@ -106,9 +109,8 @@ h1 {
 .overview-block {
   display: grid;
   grid-template-columns: 1fr;
-  grid-template-rows: repeat(4, 1fr);
+  grid-template-rows: repeat(3, 1fr);
   gap: 18px;
-  align-content: stretch;
   height: 360px;
 }
 
@@ -120,8 +122,13 @@ h1 {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  min-height: 0;
-  overflow: hidden;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.overview-card:hover {
+  background: #f8fbff;
+  border-color: #b8d0f0;
 }
 
 .row-label {

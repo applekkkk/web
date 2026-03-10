@@ -4,16 +4,26 @@ import PanelCard from "../../components/PanelCard.vue";
 import { orderList } from "../../mock/data";
 
 const keyword = ref("");
+const statusFilter = ref("");
 const orders = ref(orderList.map((item) => ({ ...item })));
 
 const filteredOrders = computed(() => {
   const k = keyword.value.trim().toLowerCase();
-  if (!k) return orders.value;
-  return orders.value.filter(
-    (item) =>
-      String(item.id).toLowerCase().includes(k) ||
-      String(item.dataset).toLowerCase().includes(k)
-  );
+  let result = orders.value;
+
+  if (k) {
+    result = result.filter(
+      (item) =>
+        String(item.id).toLowerCase().includes(k) ||
+        String(item.dataset).toLowerCase().includes(k)
+    );
+  }
+
+  if (statusFilter.value) {
+    result = result.filter((item) => item.status === statusFilter.value);
+  }
+
+  return result;
 });
 
 function statusClass(status) {
@@ -28,6 +38,11 @@ function statusClass(status) {
   <PanelCard>
     <div class="toolbar">
       <input v-model="keyword" type="text" placeholder="搜索订单号/数据集" />
+      <el-select v-model="statusFilter" placeholder="状态筛选" clearable size="default" style="width:140px;margin-left:12px">
+        <el-option label="已支付" value="已支付" />
+        <el-option label="处理中" value="处理中" />
+        <el-option label="已取消" value="已取消" />
+      </el-select>
     </div>
 
     <table>

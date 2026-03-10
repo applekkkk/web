@@ -4,17 +4,27 @@ import PanelCard from "../../components/PanelCard.vue";
 import { adminUsers } from "../../mock/data";
 
 const keyword = ref("");
+const statusFilter = ref("");
 const users = ref(adminUsers.map((item) => ({ ...item })));
 
 const filteredUsers = computed(() => {
   const k = keyword.value.trim().toLowerCase();
-  if (!k) return users.value;
-  return users.value.filter(
-    (item) =>
-      String(item.id).toLowerCase().includes(k) ||
-      String(item.name).toLowerCase().includes(k) ||
-      String(item.role).toLowerCase().includes(k)
-  );
+  let result = users.value;
+
+  if (k) {
+    result = result.filter(
+      (item) =>
+        String(item.id).toLowerCase().includes(k) ||
+        String(item.name).toLowerCase().includes(k) ||
+        String(item.role).toLowerCase().includes(k)
+    );
+  }
+
+  if (statusFilter.value) {
+    result = result.filter((item) => item.status === statusFilter.value);
+  }
+
+  return result;
 });
 
 function statusClass(status) {
@@ -34,6 +44,11 @@ function changeStatus(item) {
   <PanelCard>
     <div class="toolbar">
       <input v-model="keyword" type="text" placeholder="搜索用户ID/用户名/角色" />
+      <el-select v-model="statusFilter" placeholder="状态筛选" clearable size="default" style="width:140px;margin-left:12px">
+        <el-option label="正常" value="正常" />
+        <el-option label="限制上传" value="限制上传" />
+        <el-option label="封禁" value="封禁" />
+      </el-select>
     </div>
 
     <table>

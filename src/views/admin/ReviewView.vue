@@ -1,11 +1,13 @@
 ﻿<script setup>
-import { computed, ref } from "vue";
-import { useRouter } from "vue-router";
+import { computed, ref, onMounted } from "vue";
+import { useRouter, useRoute } from "vue-router";
 import PanelCard from "../../components/PanelCard.vue";
 import { marketData, pendingReviews } from "../../mock/data";
 
 const router = useRouter();
+const route = useRoute();
 const keyword = ref("");
+const statusFilter = ref("");
 const reviews = ref(
   pendingReviews.map((item) => {
     const datasetId = marketData.find((d) => d.name === item.dataset)?.id || marketData[0]?.id || 1;
@@ -15,13 +17,22 @@ const reviews = ref(
 
 const filteredReviews = computed(() => {
   const k = keyword.value.trim().toLowerCase();
-  if (!k) return reviews.value;
-  return reviews.value.filter(
-    (item) =>
-      String(item.id).toLowerCase().includes(k) ||
-      String(item.dataset).toLowerCase().includes(k) ||
-      String(item.owner).toLowerCase().includes(k)
-  );
+  let result = reviews.value;
+
+  if (k) {
+    result = result.filter(
+      (item) =>
+        String(item.id).toLowerCase().includes(k) ||
+        String(item.dataset).toLowerCase().includes(k) ||
+        String(item.owner).toLowerCase().includes(k)
+    );
+  }
+
+  if (statusFilter.value) {
+    result = result.filter((item) => item.status === statusFilter.value);
+  }
+
+  return result;
 });
 
 function statusClass(status) {
@@ -40,12 +51,24 @@ function openDatasetDetail(item) {
   }).href;
   window.open(url, "_blank");
 }
+
+onMounted(() => {
+  if (route.query.status) {
+    statusFilter.value = route.query.status;
+  }
+});
 </script>
 
 <template>
   <PanelCard>
     <div class="toolbar">
       <input v-model="keyword" type="text" placeholder="搜索审核单号/数据集/上传用户" />
+      <el-select v-model="statusFilter" placeholder="状态筛选" clearable size="default" style="width:140px;margin-left:12px">
+        <el-option label="待审核" value="待审核" />
+        <el-option label="审核中" value="审核中" />
+        <el-option label="通过" value="通过" />
+        <el-option label="驳回" value="驳回" />
+      </el-select>
     </div>
 
     <table>
