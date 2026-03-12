@@ -4,6 +4,10 @@ const props = defineProps({
     type: Object,
     required: true
   },
+  rightMode: {
+    type: String,
+    default: "status" // status | points
+  },
   showAction: {
     type: Boolean,
     default: true
@@ -32,13 +36,21 @@ function statusClass(item) {
   if (status === "已完成") return "done";
   return "pending";
 }
+
+function rewardText(item) {
+  return `${item.budget ?? 0}`;
+}
 </script>
 
 <template>
   <article class="need-card" :class="{ clickable }" @click="onOpen">
     <div class="head">
       <h3>{{ item.title }}</h3>
-      <span class="status" :class="statusClass(item)">{{ statusText(item) }}</span>
+      <span v-if="rightMode === 'points'" class="reward-badge">
+        <span class="reward-label">积分</span>
+        <span class="reward-value">{{ rewardText(item) }}</span>
+      </span>
+      <span v-else class="status" :class="statusClass(item)">{{ statusText(item) }}</span>
     </div>
 
     <p class="desc">{{ item.description || "暂无详细任务描述。" }}</p>
@@ -123,6 +135,29 @@ h3 {
   color: #2a7a3f;
   background: #e8f8ee;
   border-color: #bde5c8;
+}
+
+.reward-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 999px;
+  padding: 3px 10px;
+  background: linear-gradient(135deg, #ffdfa4, #f5b057);
+  border: 1px solid #f2c27a;
+  color: #5a2c00;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+
+.reward-label {
+  font-size: 12px;
+  opacity: 0.85;
+}
+
+.reward-value {
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
 }
 
 .desc {

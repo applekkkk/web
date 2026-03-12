@@ -1,14 +1,18 @@
 <script setup>
-import { computed, ref, watch } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
+import { ElMessage } from "element-plus";
 import NeedCard from "../../components/NeedCard.vue";
-import { useNeedsStore } from "../../stores/needs";
+import { customRequestApi } from "../../services/api";
+import { useAuthStore } from "../../stores/auth";
 
 const router = useRouter();
-const needsStore = useNeedsStore();
+const auth = useAuthStore();
 
 const keyword = ref("");
 const activeCategory = ref("全部");
+const loading = ref(false);
+const list = ref([]);
 
 const pageSizeOptions = [6, 9, 12, 20];
 const pageSize = ref(9);
@@ -18,14 +22,51 @@ const disabled = ref(false);
 const background = ref(true);
 const size = ref("default");
 
+function normalizeRequest(item) {
+  return {
+    id: item.id,
+    title: item.title || "",
+    description: item.description || "",
+    amount: item.amount || "",
+    tags: item.tags || "",
+    budget: Number(item.budget || 0),
+    deadline: item.deadline || "",
+    category: item.category || "其他",
+    publisher: item.publisherName ?? item.publisher_name ?? "",
+    publisherId: item.publisherId ?? item.publisher_id ?? null,
+    publisherContact: item.publisherContact ?? item.publisher_contact ?? "",
+    attachmentName: item.attachmentName ?? item.attachment_name ?? "",
+    acceptedBy: item.acceptorName ?? item.acceptor_name ?? "",
+    needStatus: item.needStatus ?? item.need_status ?? 0,
+    deliveryFileName: item.deliveryFileName ?? item.delivery_file_name ?? ""
+  };
+}
+
+async function fetchMarket() {
+  loading.value = true;
+  try {
+    const res = await customRequestApi.getList({ userId: auth.user?.id ?? null });
+    if (res?.code !== 200) {
+      throw new Error(res?.message || "加载失败");
+    }
+    const raw = Array.isArray(res?.data) ? res.data : [];
+    list.value = raw.map(normalizeRequest);
+  } catch (e) {
+    list.value = [];
+    ElMessage.error(e?.message || "加载失败");
+  } finally {
+    loading.value = false;
+  }
+}
+
 const categories = computed(() => {
-  const set = new Set(needsStore.marketNeeds.map((item) => item.category || "其他"));
+  const set = new Set(list.value.map((item) => item.category || "其他"));
   return ["全部", ...set];
 });
 
 const filteredList = computed(() => {
   const q = keyword.value.trim().toLowerCase();
-  return needsStore.marketNeeds.filter((item) => {
+  return list.value.filter((item) => {
     const hitCategory = activeCategory.value === "全部" || (item.category || "其他") === activeCategory.value;
     const text = `${item.title} ${item.description || ""} ${item.tags || ""} ${item.publisher || ""}`.toLowerCase();
     const hitKeyword = !q || text.includes(q);
@@ -55,6 +96,10 @@ function openNeed(item) {
   const url = router.resolve({ path: `/user/custom-bids/${item.id}` }).href;
   window.open(url, "_blank");
 }
+
+onMounted(() => {
+  fetchMarket();
+});
 </script>
 
 <template>
@@ -76,18 +121,19 @@ function openNeed(item) {
     </section>
 
 
-    <section class="cards-grid">
+    <section class="cards-grid" v-loading="loading">
       <NeedCard
         v-for="item in pagedList"
         :key="item.id"
         :item="item"
         :show-action="false"
+        right-mode="points"
         clickable
         @open="openNeed"
       />
     </section>
 
-    <p v-if="filteredList.length === 0" class="empty">暂无可承接任务。</p>
+    <p v-if="!loading && filteredList.length === 0" class="empty">暂无可承接任务。</p>
 
     <div v-else class="pager-row">
       <el-pagination

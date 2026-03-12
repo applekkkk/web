@@ -24,10 +24,10 @@ export const orderApi = {
 };
 
 export const customRequestApi = {
-  getList: () => request.get("/custom-requests"),
+  getList: (params) => request.get("/custom-requests", { params }),
   getById: (id) => request.get(`/custom-requests/${id}`),
   create: (data) => request.post("/custom-requests", data),
-  accept: (id, acceptedBy) => request.put(`/custom-requests/${id}/accept`, null, { params: { acceptedBy } })
+  accept: (id, params) => request.put(`/custom-requests/${id}/accept`, null, { params })
 };
 
 export const reviewApi = {

@@ -1,29 +1,72 @@
 <script setup>
-import { computed, ref } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 import { useRoute } from "vue-router";
 import { ElMessage } from "element-plus";
-import { useNeedsStore } from "../../stores/needs";
+import { customRequestApi } from "../../services/api";
 import { useAuthStore } from "../../stores/auth";
 
 const route = useRoute();
-const needsStore = useNeedsStore();
 const auth = useAuthStore();
-const fileInputRef = ref(null);
 
-const task = computed(() => {
-  const id = String(route.params.id || "");
-  return needsStore.allNeeds.find((item) => String(item.id) === id) || null;
+const task = ref(null);
+const loading = ref(false);
+
+function normalizeRequest(item) {
+  return {
+    id: item.id,
+    title: item.title || "",
+    description: item.description || "",
+    amount: item.amount || "",
+    tags: item.tags || "",
+    budget: Number(item.budget || 0),
+    deadline: item.deadline || "",
+    category: item.category || "其他",
+    publisher: item.publisherName ?? item.publisher_name ?? "",
+    publisherId: item.publisherId ?? item.publisher_id ?? null,
+    publisherContact: item.publisherContact ?? item.publisher_contact ?? "",
+    attachmentName: item.attachmentName ?? item.attachment_name ?? "",
+    acceptorId: item.acceptorId ?? item.acceptor_id ?? null,
+    acceptorName: item.acceptorName ?? item.acceptor_name ?? "",
+    deliveryFileName: item.deliveryFileName ?? item.delivery_file_name ?? "",
+    needStatus: item.needStatus ?? item.need_status ?? 0
+  };
+}
+
+async function fetchTask() {
+  const id = route.params.id;
+  if (!id) return;
+  loading.value = true;
+  try {
+    const res = await customRequestApi.getById(id);
+    if (res?.code !== 200) {
+      throw new Error(res?.message || "加载失败");
+    }
+    task.value = normalizeRequest(res.data || {});
+  } catch (e) {
+    task.value = null;
+    ElMessage.error(e?.message || "加载失败");
+  } finally {
+    loading.value = false;
+  }
+}
+
+onMounted(() => {
+  fetchTask();
 });
+
+watch(
+  () => route.params.id,
+  () => {
+    fetchTask();
+  }
+);
 
 const statusText = computed(() => {
   if (!task.value) return "未承接";
-  return task.value.needStatus || (task.value.acceptedBy ? "进行中" : "未承接");
-});
-
-const canUploadDelivery = computed(() => {
-  if (!task.value) return false;
-  const mine = task.value.acceptedBy === (auth.user?.name || "");
-  return mine && ["进行中", "已交付"].includes(statusText.value);
+  const status = Number(task.value.needStatus ?? 0);
+  if (status === 1) return "进行中";
+  if (status === 2) return "已完成";
+  return "未承接";
 });
 
 const detailRows = computed(() => {
@@ -42,44 +85,36 @@ const detailRows = computed(() => {
   ];
 });
 
-function handleAccept() {
+async function handleAccept() {
   if (!task.value) return;
   if (statusText.value !== "未承接") {
     ElMessage.warning("该任务当前不可承接");
     return;
   }
-  const result = needsStore.acceptNeed(task.value.id, auth.user?.name || "");
-  if (result.ok) {
-    ElMessage.success("承接成功");
-    return;
-  }
-  if (result.reason === "self") {
+  if (task.value.publisherId && auth.user?.id && task.value.publisherId === auth.user.id) {
     ElMessage.warning("不能承接自己发布的任务");
     return;
   }
-  ElMessage.error("承接失败");
-}
-
-function triggerDelivery() {
-  if (!canUploadDelivery.value) return;
-  fileInputRef.value?.click();
-}
-
-function onFileChange(event) {
-  const file = event.target.files?.[0] || null;
-  if (!file || !task.value) return;
-  const result = needsStore.deliverTask(task.value.id, auth.user?.name || "", file.name);
-  event.target.value = "";
-  if (!result.ok) {
-    ElMessage.warning("当前状态不可交付");
-    return;
+  try {
+    const res = await customRequestApi.accept(task.value.id, {
+      acceptorId: auth.user?.id ?? null,
+      acceptorName: auth.user?.name || ""
+    });
+    if (res?.code !== 200) {
+      throw new Error(res?.message || "承接失败");
+    }
+    task.value.needStatus = 1;
+    task.value.acceptorId = auth.user?.id ?? null;
+    task.value.acceptorName = auth.user?.name || "";
+    ElMessage.success("承接成功");
+  } catch (e) {
+    ElMessage.error(e?.message || "承接失败");
   }
-  ElMessage.success("交付成功");
 }
 </script>
 
 <template>
-  <section v-if="task" class="detail-page">
+  <section v-if="task" class="detail-page" v-loading="loading">
     <header class="detail-head">
       <div class="head-main">
         <h1>{{ task.title || "未命名任务" }}</h1>
@@ -96,15 +131,6 @@ function onFileChange(event) {
     <section class="block">
       <h2>任务描述</h2>
       <p>{{ task.description || "发布者未填写任务描述。" }}</p>
-    </section>
-
-    <section v-if="canUploadDelivery" class="block">
-      <h2>交付上传</h2>
-      <div class="upload-row">
-        <input ref="fileInputRef" type="file" class="hidden-file" @change="onFileChange" />
-        <span class="file-name">{{ task.deliveryFileName || "未交付文件" }}</span>
-        <button type="button" class="accept" @click="triggerDelivery">交付上传</button>
-      </div>
     </section>
 
     <section class="block">
@@ -199,22 +225,6 @@ p {
   color: #414e5f;
   font-size: 15px;
   line-height: 1.8;
-}
-
-.upload-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 10px;
-}
-
-.hidden-file {
-  display: none;
-}
-
-.file-name {
-  color: #637894;
-  font-size: 13px;
 }
 
 .table {

@@ -2,10 +2,10 @@
 import { reactive, ref } from "vue";
 import { ElMessage } from "element-plus";
 import { useAuthStore } from "../../stores/auth";
-import { useNeedsStore } from "../../stores/needs";
+import { customRequestApi } from "../../services/api";
+import request from "../../services/request";
 
 const auth = useAuthStore();
-const needsStore = useNeedsStore();
 
 const categoryOptions = ["图数据", "文本", "时空", "其他"];
 
@@ -21,6 +21,8 @@ const form = reactive({
 
 const selectedFile = ref(null);
 const fileInputRef = ref(null);
+const submitting = ref(false);
+const size = ref("default");
 
 function chooseFile() {
   fileInputRef.value?.click();
@@ -31,31 +33,79 @@ function onFileChange(event) {
   selectedFile.value = file || null;
 }
 
-function submit() {
+function formatDate(val) {
+  if (!val) return "";
+  if (typeof val === "string") return val.slice(0, 10);
+  const date = new Date(val);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toISOString().slice(0, 10);
+}
+
+async function uploadAttachment(file) {
+  const fd = new FormData();
+  fd.append("file", file);
+  const res = await request.post("/files/upload", fd, {
+    headers: { "Content-Type": "multipart/form-data" }
+  });
+  if (res?.code !== 200) {
+    throw new Error(res?.message || "附件上传失败");
+  }
+  return res?.data?.savedName || "";
+}
+
+async function submit() {
   if (!form.title.trim() || !form.description.trim() || !form.amount || !form.contact.trim() || !form.deadline || !form.budget) {
     ElMessage.warning("请填写完整任务信息");
     return;
   }
+  const deadline = formatDate(form.deadline);
+  if (!deadline) {
+    ElMessage.warning("请选择有效的截止日期");
+    return;
+  }
 
-  needsStore.publishNeed({
-    ...form,
-    publisher: auth.user?.name || "当前用户",
-    publisherId: auth.user?.id ?? null,
-    publisherContact: form.contact,
-    attachmentName: selectedFile.value?.name || ""
-  });
+  submitting.value = true;
+  try {
+    let attachmentName = "";
+    if (selectedFile.value) {
+      attachmentName = await uploadAttachment(selectedFile.value);
+    }
 
-  form.title = "";
-  form.description = "";
-  form.category = "图数据";
-  form.amount = "";
-  form.contact = "";
-  form.budget = 300;
-  form.deadline = "";
-  selectedFile.value = null;
-  if (fileInputRef.value) fileInputRef.value.value = "";
+    const payload = {
+      title: form.title.trim(),
+      description: form.description.trim(),
+      category: form.category,
+      tags: "",
+      amount: String(form.amount),
+      budget: Number(form.budget),
+      deadline,
+      publisherId: auth.user?.id ?? null,
+      publisherName: auth.user?.name || "当前用户",
+      publisherContact: form.contact.trim(),
+      attachmentName
+    };
 
-  ElMessage.success("任务发布成功");
+    const res = await customRequestApi.create(payload);
+    if (res?.code !== 200) {
+      throw new Error(res?.message || "发布失败");
+    }
+
+    form.title = "";
+    form.description = "";
+    form.category = "图数据";
+    form.amount = "";
+    form.contact = "";
+    form.budget = 300;
+    form.deadline = "";
+    selectedFile.value = null;
+    if (fileInputRef.value) fileInputRef.value.value = "";
+
+    ElMessage.success("任务发布成功");
+  } catch (e) {
+    ElMessage.error(e?.message || "发布失败");
+  } finally {
+    submitting.value = false;
+  }
 }
 </script>
 
@@ -83,7 +133,7 @@ function submit() {
 
         <label>
           数据量
-          <input v-model.trim="form.amount" placeholder="输入需要的数据条数" type="number"/>
+          <input v-model.trim="form.amount" placeholder="输入需要的数据条数" type="number" />
         </label>
 
         <label>
@@ -108,13 +158,15 @@ function submit() {
 
         <div class="full upload-box">
           <label class="sample-tip">示例数据文件（csv文件，可选）</label>
-          <input ref="fileInputRef" type="file" class="hidden-file" @change="onFileChange" />
+          <input ref="fileInputRef" type="file" accept=".csv,text/csv" class="hidden-file" @change="onFileChange" />
           <button type="button" class="btn ghost" @click="chooseFile">选择附件</button>
           <span class="file-name">{{ selectedFile ? selectedFile.name : "未选择附件" }}</span>
         </div>
 
         <div class="full">
-          <button type="button" class="btn" @click="submit">发布任务</button>
+          <button type="button" class="btn" :disabled="submitting" @click="submit">
+            {{ submitting ? "发布中..." : "发布任务" }}
+          </button>
         </div>
       </div>
     </section>
@@ -194,6 +246,11 @@ textarea {
   color: #fff;
   background: #2f5a90;
   cursor: pointer;
+}
+
+.btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
 }
 
 .btn.ghost {
