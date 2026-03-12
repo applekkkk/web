@@ -31,9 +31,9 @@ export const customRequestApi = {
 };
 
 export const reviewApi = {
-  getPendingList: () => request.get("/reviews/pending"),
-  approve: (id) => request.put(`/reviews/${id}/approve`),
-  reject: (id) => request.put(`/reviews/${id}/reject`)
+  getPendingList: () => request.get("/products/pending"),
+  approve: (id, status = 1) => request.put(`/products/${id}/approve`, null, { params: { status } }),
+  reject: (id) => request.put(`/products/${id}/approve`, null, { params: { status: 2 } })
 };
 
 export const walletApi = {

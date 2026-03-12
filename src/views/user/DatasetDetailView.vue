@@ -1,25 +1,89 @@
 ﻿<script setup>
 import { computed, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { marketData } from "../../mock/data";
 import { ElMessage } from "element-plus";
+import request from "../../services/request";
+import { marketData } from "../../mock/data";
 
 const route = useRoute();
 const router = useRouter();
 const dataset = ref(null);
+const loading = ref(false);
 const reviewStatus = ref("待审核");
 const reviewStatusOptions = ["待审核", "审核中", "通过", "驳回"];
 const isAdminView = computed(() => route.path.startsWith("/admin"));
+const suppressReviewSync = ref(true);
 
 const sourceDataset = computed(() => {
   const id = Number(route.params.id);
   return marketData.find((item) => item.id === id) || null;
 });
 
+function statusLabelFromCode(code) {
+  if (code === 1) return "通过";
+  if (code === 2) return "驳回";
+  return "待审核";
+}
+
+function statusCodeFromLabel(label) {
+  if (label === "通过") return 1;
+  if (label === "驳回") return 2;
+  return null;
+}
+
+function parseSummary(summary) {
+  if (Array.isArray(summary)) return summary;
+  if (typeof summary === "string") {
+    try {
+      const parsed = JSON.parse(summary);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (e) {
+      return [];
+    }
+  }
+  return [];
+}
+
+function normalizeProduct(item) {
+  return {
+    ...item,
+    id: item.id,
+    size: item?.size ?? item?.sizeLabel ?? item?.size_label ?? "-",
+    author: item?.author ?? item?.authorName ?? item?.author_name ?? "",
+    uploadDate: item?.uploadDate ?? item?.upload_date ?? "",
+    summary: parseSummary(item?.summary)
+  };
+}
+
+async function fetchDataset() {
+  const id = Number(route.params.id);
+  if (!id) return;
+  loading.value = true;
+  try {
+    const res = await request.get(`/products/${id}`);
+    if (res?.code !== 200) {
+      throw new Error(res?.message || "加载失败");
+    }
+    dataset.value = normalizeProduct(res.data || {});
+    suppressReviewSync.value = true;
+    reviewStatus.value = statusLabelFromCode(res?.data?.reviewStatus ?? res?.data?.review_status);
+    suppressReviewSync.value = false;
+  } catch (e) {
+    const fallback = sourceDataset.value ? { ...sourceDataset.value } : null;
+    dataset.value = fallback ? normalizeProduct(fallback) : null;
+    suppressReviewSync.value = false;
+    if (!dataset.value) {
+      ElMessage.error(e?.message || "加载失败");
+    }
+  } finally {
+    loading.value = false;
+  }
+}
+
 watch(
-  sourceDataset,
-  (val) => {
-    dataset.value = val ? { ...val } : null;
+  () => route.params.id,
+  () => {
+    fetchDataset();
   },
   { immediate: true }
 );
@@ -32,6 +96,32 @@ watch(
   },
   { immediate: true }
 );
+
+watch(
+  () => reviewStatus.value,
+  async (next, prev) => {
+    if (!isAdminView.value || !dataset.value || suppressReviewSync.value) return;
+    const statusCode = statusCodeFromLabel(next);
+    if (!statusCode) return;
+    try {
+      const res = await request.put(`/products/${dataset.value.id}/approve`, null, {
+        params: { status: statusCode }
+      });
+      if (res?.code !== 200) {
+        throw new Error(res?.message || "审核失败");
+      }
+      ElMessage.success(statusCode === 1 ? "审核通过" : "已驳回");
+    } catch (e) {
+      reviewStatus.value = prev;
+      ElMessage.error(e?.message || "审核失败");
+    }
+  }
+);
+
+const summaryList = computed(() => {
+  const summary = dataset.value?.summary;
+  return Array.isArray(summary) ? summary : [];
+});
 
 const tags = computed(() => {
   if (!dataset.value) return [];
@@ -69,8 +159,33 @@ function handleDownload() {
     return;
   }
   if (!dataset.value) return;
-  dataset.value.downloads = (dataset.value.downloads ?? 0) + 1;
-  ElMessage.success("下载成功");
+  if (!dataset.value.fileName) {
+    ElMessage.error("文件不存在");
+    return;
+  }
+  downloadFile();
+}
+
+async function downloadFile() {
+  try {
+    const res = await request.get("/files/download", {
+      params: { name: dataset.value.fileName },
+      responseType: "blob"
+    });
+    const blob = res instanceof Blob ? res : new Blob([res]);
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = dataset.value.fileName;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+    dataset.value.downloads = (dataset.value.downloads ?? 0) + 1;
+    ElMessage.success("下载成功");
+  } catch (e) {
+    ElMessage.error(e?.message || "下载失败");
+  }
 }
 
 function handleBuy() {
@@ -139,7 +254,11 @@ function onAuthorAvatarError(event) {
           <span>属性</span>
           <span>描述</span>
         </div>
-        <div v-for="item in dataset.summary || []" :key="`${item.key}-${item.value}`" class="row two-col">
+        <div v-if="summaryList.length === 0" class="row empty-row">
+          <span>暂无信息</span>
+          <span>-</span>
+        </div>
+        <div v-else v-for="item in summaryList" :key="`${item.key}-${item.value}`" class="row two-col">
           <span>{{ item.key }}</span>
           <span>{{ item.value }}</span>
         </div>
@@ -308,6 +427,10 @@ p {
   font-weight: 600;
 }
 
+.empty-row span {
+  color: #8a97a8;
+}
+
 .empty {
   margin-top: 24px;
 }
@@ -334,3 +457,4 @@ p {
   }
 }
 </style>
+

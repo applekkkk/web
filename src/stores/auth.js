@@ -1,5 +1,6 @@
 ﻿import { computed, ref } from "vue";
 import { defineStore } from "pinia";
+import { authApi } from "../services/api";
 
 const TOKEN_KEY = "trade-token";
 const USER_KEY = "trade-user";
@@ -16,25 +17,40 @@ export const useAuthStore = defineStore("auth", () => {
 
   function loadUser() {
     const raw = localStorage.getItem(USER_KEY);
-    return raw ? JSON.parse(raw) : null;
+    const data = raw ? JSON.parse(raw) : null;
+    if (!data) return null;
+    if (data.role === 1 || data.role === "1") data.role = "admin";
+    if (data.role === 0 || data.role === "0") data.role = "user";
+    return data;
   }
 
-  function login(form) {
-    const role = form.account?.includes("admin") ? "admin" : "user";
-    token.value = `token-${Date.now()}`;
+  async function login(form) {
+    const username = form?.account ?? form?.username ?? "";
+    const password = form?.password ?? "";
+    const res = await authApi.login({ username, password });
+    if (res?.code !== 200) {
+      throw new Error(res?.message || "登录失败");
+    }
+    const data = res?.data || {};
+    const role = Number(data.role) === 1 ? "admin" : "user";
+    if (!data.token) {
+      throw new Error("登录失败");
+    }
+    token.value = data.token;
     user.value = {
-      id: role === "admin" ? 1 : 1001,
-      name: role === "admin" ? "平台管理员" : "普通用户",
+      id: data.id,
+      name: data.name || username,
       role,
-      points: role === "admin" ? 0 : 1800,
-      avatar: "/img/avatar.png",
-      bio: "",
-      password: form.password,
-      lastCheckInDate: ""
+      points: data.points ?? 0,
+      avatar: data.avatar || "/img/avatar.png",
+      bio: data.bio || "",
+      password: "",
+      lastCheckInDate: data.lastCheckInDate || ""
     };
 
     localStorage.setItem(TOKEN_KEY, token.value);
     localStorage.setItem(USER_KEY, JSON.stringify(user.value));
+    return res;
   }
 
   function updateProfile(payload) {
@@ -89,3 +105,6 @@ export const useAuthStore = defineStore("auth", () => {
     logout
   };
 });
+
+
+

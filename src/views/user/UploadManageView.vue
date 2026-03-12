@@ -2,6 +2,9 @@
 import { computed, reactive, ref } from "vue";
 import { useAuthStore } from "../../stores/auth";
 import PanelCard from "../../components/PanelCard.vue";
+import { ElMessage } from "element-plus";
+import request from "../../services/request";
+import router from "@/router";
 
 const categoryOptions = ["复杂网络", "文本", "时空"];
 const sizeUnitOptions = ["MB", "GB"];
@@ -19,16 +22,28 @@ const form = reactive({
 const selectedFile = ref(null);
 const fileInputRef = ref(null);
 const message = ref("");
+const uploading = ref(false);
 const today = new Date().toISOString().slice(0, 10);
 const currentUserName = computed(() => auth.user?.name || "当前用户");
+const currentUserId = computed(() => auth.user?.id || null);
 
-const generatedPayload = computed(() => {
-  const summary = form.summaryText
+function bytesToSizeLabel(bytes) {
+  const b = Number(bytes ?? 0);
+  if (!Number.isFinite(b) || b <= 0) return "0MB";
+  const mb = b / (1024 * 1024);
+  if (mb >= 1024) return `${(mb / 1024).toFixed(2)}GB`;
+  return `${mb.toFixed(2)}MB`;
+}
+
+function parseSummaryText(text) {
+  return String(text || "")
     .split("\n")
     .map((line) => line.trim())
     .filter(Boolean)
     .map((line) => {
-      const splitIndex = line.indexOf(":");
+      const asciiIndex = line.indexOf(":");
+      const cnIndex = line.indexOf("：");
+      const splitIndex = asciiIndex >= 0 ? asciiIndex : cnIndex;
       if (splitIndex === -1) {
         return { key: line, value: "" };
       }
@@ -37,6 +52,34 @@ const generatedPayload = computed(() => {
         value: line.slice(splitIndex + 1).trim()
       };
     });
+}
+
+function validateSummaryText(text) {
+  const lines = String(text || "")
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+  if (lines.length === 0) {
+    return { ok: true, summary: [] };
+  }
+  for (const line of lines) {
+    const asciiIndex = line.indexOf(":");
+    const cnIndex = line.indexOf("：");
+    const splitIndex = asciiIndex >= 0 ? asciiIndex : cnIndex;
+    if (splitIndex <= 0) {
+      return { ok: false, reason: "数据摘要格式错误，请使用“属性:描述”格式（可为空）" };
+    }
+    const key = line.slice(0, splitIndex).trim();
+    const value = line.slice(splitIndex + 1).trim();
+    if (!key || !value) {
+      return { ok: false, reason: "数据摘要格式错误，请使用“属性:描述”格式（可为空）" };
+    }
+  }
+  return { ok: true, summary: parseSummaryText(text) };
+}
+
+const generatedPayload = computed(() => {
+  const summary = parseSummaryText(form.summaryText);
 
   return {
     name: form.name,
@@ -81,13 +124,68 @@ function onFileChange(event) {
   message.value = `已选择文件：${file.name}`;
 }
 
-function submit() {
+async function submit() {
   if (!form.name || !form.info || !selectedFile.value) {
     message.value = "请至少填写名称、简介，并选择 .csv 文件后提交。";
     return;
   }
 
-  message.value = `数据集《${form.name}》提交并上传成功，等待管理员审核。`;
+  const summaryCheck = validateSummaryText(form.summaryText);
+  if (!summaryCheck.ok) {
+    message.value = summaryCheck.reason;
+    ElMessage.warning(summaryCheck.reason);
+    return;
+  }
+
+  uploading.value = true;
+  try {
+    // 1) 先上传文件，后端随机生成文件名并返回
+    const fd = new FormData();
+    fd.append("file", selectedFile.value);
+
+    const res = await request.post("/files/upload", fd, {
+      headers: { "Content-Type": "multipart/form-data" }
+    });
+
+    if (res?.code !== 200) {
+      throw new Error(res?.message || "上传失败");
+    }
+
+    const savedName = res?.data?.savedName;
+    if (!savedName) {
+      throw new Error("上传成功但未返回保存文件名");
+    }
+
+    // 2) 再创建商品，把信息写入数据库（把 fileName 设置成后端随机名）
+    const productPayload = {
+      name: form.name,
+      info: form.info,
+      category: form.category,
+      tags: form.tags,
+      price: Number(form.price),
+      sizeLabel: bytesToSizeLabel(selectedFile.value?.size),
+      seller: "平台数据市场",
+      authorId: currentUserId.value,
+      authorName: currentUserName.value,
+      fileName: savedName,
+      // summary 列是 JSON 类型；后端字段是 String，传递 JSON 文本，空时传 "[]"
+      summary: JSON.stringify(summaryCheck.summary ?? []),
+      uploadDate: today
+    };
+
+    const createRes = await request.post("/products", productPayload);
+    if (createRes?.code !== 200) {
+      throw new Error(createRes?.message || "创建商品失败");
+    }
+
+    message.value = `数据集《${form.name}》提交成功，等待管理员审核。`;
+    ElMessage.success("提交成功");
+  } catch (e) {
+    ElMessage.error(e?.message || "上传失败");
+  } finally {
+    uploading.value = false;
+    
+  }
 }
 </script>
 
@@ -147,7 +245,9 @@ function submit() {
       </div>
 
       <div class="full">
-        <button type="button" class="btn submit" @click="submit">提交</button>
+        <button type="button" class="btn submit" :disabled="uploading" @click="submit">
+          {{ uploading ? "上传中..." : "提交" }}
+        </button>
       </div>
     </div>
 
@@ -258,3 +358,4 @@ textarea {
   }
 }
 </style>
+

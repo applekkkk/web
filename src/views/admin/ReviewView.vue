@@ -1,19 +1,19 @@
 ﻿<script setup>
 import { computed, ref, onMounted } from "vue";
 import { useRouter, useRoute } from "vue-router";
+import { ElMessage } from "element-plus";
 import PanelCard from "../../components/PanelCard.vue";
-import { marketData, pendingReviews } from "../../mock/data";
+import { reviewApi } from "../../services/api";
 
 const router = useRouter();
 const route = useRoute();
 const keyword = ref("");
 const statusFilter = ref("");
-const reviews = ref(
-  pendingReviews.map((item) => {
-    const datasetId = marketData.find((d) => d.name === item.dataset)?.id || marketData[0]?.id || 1;
-    return { ...item, datasetId };
-  })
-);
+const reviews = ref([]);
+const loading = ref(false);
+const pageSizeOptions = [6, 9, 12, 20];
+const pageSize = ref(9);
+const currentPage = ref(1);
 
 const filteredReviews = computed(() => {
   const k = keyword.value.trim().toLowerCase();
@@ -35,12 +35,33 @@ const filteredReviews = computed(() => {
   return result;
 });
 
+const total = computed(() => filteredReviews.value.length);
+const pagedReviews = computed(() => {
+  const start = (currentPage.value - 1) * pageSize.value;
+  return filteredReviews.value.slice(start, start + pageSize.value);
+});
+
+function handleSizeChange(val) {
+  pageSize.value = val;
+  currentPage.value = 1;
+}
+
+function handleCurrentChange(val) {
+  currentPage.value = val;
+}
+
 function statusClass(status) {
   if (status === "待审核") return "pending";
   if (status === "审核中") return "processing";
   if (status === "通过") return "done";
   if (status === "驳回") return "rejected";
   return "pending";
+}
+
+function statusLabelFromCode(code) {
+  if (code === 1) return "通过";
+  if (code === 2) return "驳回";
+  return "待审核";
 }
 
 function openDatasetDetail(item) {
@@ -52,10 +73,35 @@ function openDatasetDetail(item) {
   window.open(url, "_blank");
 }
 
+async function fetchPendingReviews() {
+  loading.value = true;
+  try {
+    const res = await reviewApi.getPendingList();
+    if (res?.code !== 200) {
+      throw new Error(res?.message || "加载失败");
+    }
+    const list = Array.isArray(res?.data) ? res.data : [];
+    reviews.value = list.map((item) => ({
+      id: item.id,
+      datasetId: item.id,
+      dataset: item.name,
+      owner: item.authorName ?? item.author_name ?? "",
+      submittedAt: item.uploadDate ?? item.upload_date ?? "",
+      status: statusLabelFromCode(item.reviewStatus ?? item.review_status)
+    }));
+  } catch (e) {
+    reviews.value = [];
+    ElMessage.error(e?.message || "加载失败");
+  } finally {
+    loading.value = false;
+  }
+}
+
 onMounted(() => {
   if (route.query.status) {
     statusFilter.value = route.query.status;
   }
+  fetchPendingReviews();
 });
 </script>
 
@@ -71,7 +117,7 @@ onMounted(() => {
       </el-select>
     </div>
 
-    <table>
+    <table v-loading="loading">
       <thead>
         <tr>
           <th>审核单号</th>
@@ -82,7 +128,7 @@ onMounted(() => {
         </tr>
       </thead>
       <tbody>
-        <tr v-for="item in filteredReviews" :key="item.id" class="click-row" @click="openDatasetDetail(item)">
+        <tr v-for="item in pagedReviews" :key="item.id" class="click-row" @click="openDatasetDetail(item)">
           <td>{{ item.id }}</td>
           <td>{{ item.dataset }}</td>
           <td>{{ item.owner }}</td>
@@ -96,6 +142,19 @@ onMounted(() => {
         </tr>
       </tbody>
     </table>
+
+    <div class="pager-row">
+      <el-pagination
+        v-model:current-page="currentPage"
+        v-model:page-size="pageSize"
+        :page-sizes="pageSizeOptions"
+        :background="true"
+        layout="total, sizes, prev, pager, next, jumper"
+        :total="total"
+        @size-change="handleSizeChange"
+        @current-change="handleCurrentChange"
+      />
+    </div>
   </PanelCard>
 </template>
 
@@ -172,5 +231,11 @@ td {
 
 .click-row:hover {
   background: #f8fbff;
+}
+
+.pager-row {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 14px;
 }
 </style>

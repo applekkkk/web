@@ -85,7 +85,7 @@ async function onSubmit() {
       router.push(redirect);
       return;
     }
-    router.push(auth.user?.role === "admin" ? "/admin" : "/user");
+    router.push(auth.user?.role === "admin" ? "/admin" : "/user/market");
   } catch (e) {
     const msg = e?.message || "登录失败，请稍后再试";
     error.value = msg;

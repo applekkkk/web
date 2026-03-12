@@ -14,6 +14,10 @@ const pageSizeOptions = [6, 9, 12, 20];
 const pageSize = ref(9);
 const currentPage = ref(1);
 
+const disabled = ref(false);
+const background = ref(true);
+const size = ref("default");
+
 const categories = computed(() => {
   const set = new Set(needsStore.marketNeeds.map((item) => item.category || "其他"));
   return ["全部", ...set];
@@ -37,6 +41,15 @@ const pagedList = computed(() => {
 watch([keyword, activeCategory], () => {
   currentPage.value = 1;
 });
+
+function handleSizeChange(val) {
+  pageSize.value = val;
+  currentPage.value = 1;
+}
+
+function handleCurrentChange(val) {
+  currentPage.value = val;
+}
 
 function openNeed(item) {
   const url = router.resolve({ path: `/user/custom-bids/${item.id}` }).href;
@@ -81,9 +94,13 @@ function openNeed(item) {
         v-model:current-page="currentPage"
         v-model:page-size="pageSize"
         :page-sizes="pageSizeOptions"
-        layout="prev, pager, next, sizes, total"
+        :size="size"
+        :disabled="disabled"
+        :background="background"
+        layout="total, sizes, prev, pager, next, jumper"
         :total="filteredList.length"
-        background
+        @size-change="handleSizeChange"
+        @current-change="handleCurrentChange"
       />
     </div>
   </section>

@@ -1,19 +1,25 @@
 <script setup>
-import { computed, ref, watch } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
-import { marketData } from "../../mock/data";
 import { ElMessage } from "element-plus";
 import DatasetCard from "../../components/DatasetCard.vue";
+import request from "../../services/request";
 
 const keyword = ref("");
 const activeCategory = ref("All");
 const activeSort = ref("recommend");
 const router = useRouter();
-const marketList = ref(marketData.map((item) => ({ ...item })));
+const marketList = ref([]);
+const total = ref(0);
+const loading = ref(false);
 
 const pageSizeOptions = [6, 9, 12, 20];
 const pageSize = ref(9);
 const currentPage = ref(1);
+
+const disabled = ref(false);
+const background = ref(true);
+const size = ref("default");
 
 const categories = computed(() => {
   const uniq = new Set(marketList.value.map((item) => item.category));
@@ -28,41 +34,59 @@ const tags = computed(() => {
   return [...new Set(all)];
 });
 
-const filteredData = computed(() => {
-  const q = keyword.value.trim().toLowerCase();
-  let list = marketList.value.filter((item) => {
-    const hitCategory = activeCategory.value === "All" || item.category === activeCategory.value;
-    const haystack = `${item.name} ${item.category} ${item.tags} ${item.seller}`.toLowerCase();
-    const hitKeyword = !q || haystack.includes(q);
-    return hitCategory && hitKeyword;
-  });
+async function fetchMarket() {
+  loading.value = true;
+  try {
+    const body = {
+      keyword: keyword.value?.trim() || "",
+      category: activeCategory.value === "All" ? "" : activeCategory.value,
+      sortBy: activeSort.value || "recommend",
+      pageNum: currentPage.value,
+      pageSize: pageSize.value
+    };
 
-  if (activeSort.value === "price-asc") {
-    list = [...list].sort((a, b) => a.price - b.price);
-  } else if (activeSort.value === "price-desc") {
-    list = [...list].sort((a, b) => b.price - a.price);
-  } else if (activeSort.value === "size-desc") {
-    list = [...list].sort((a, b) => parseSize(b.size) - parseSize(a.size));
+    const res = await request.post("/products/query", body);
+    if (res?.code !== 200) {
+      throw new Error(res?.message || "加载失败");
+    }
+
+    const rawList = Array.isArray(res?.data?.list) ? res.data.list : [];
+    marketList.value = rawList.map((item) => ({
+      ...item,
+      size: item?.size ?? item?.sizeLabel ?? item?.size_label ?? "-",
+      author: item?.author ?? item?.authorName ?? item?.author_name ?? "",
+      uploadDate: item?.uploadDate ?? item?.upload_date ?? ""
+    }));
+    total.value = Number(res?.data?.total ?? 0);
+  } catch (e) {
+    marketList.value = [];
+    total.value = 0;
+    ElMessage.error(e?.message || "加载失败");
+  } finally {
+    loading.value = false;
   }
+}
 
-  return list;
-});
-
-const pagedData = computed(() => {
-  const start = (currentPage.value - 1) * pageSize.value;
-  return filteredData.value.slice(start, start + pageSize.value);
-});
-
+let keywordTimer = null;
 watch([keyword, activeCategory, activeSort], () => {
   currentPage.value = 1;
+  if (keywordTimer) clearTimeout(keywordTimer);
+  keywordTimer = setTimeout(() => {
+    fetchMarket();
+  }, 250);
 });
 
-function parseSize(raw) {
-  const str = String(raw).toUpperCase();
-  if (str.endsWith("GB")) return parseFloat(str) * 1024;
-  if (str.endsWith("MB")) return parseFloat(str);
-  if (str.endsWith("KB")) return parseFloat(str) / 1024;
-  return parseFloat(str) || 0;
+watch([currentPage, pageSize], () => {
+  fetchMarket();
+});
+
+function handleSizeChange(val) {
+  pageSize.value = val;
+  currentPage.value = 1;
+}
+
+function handleCurrentChange(val) {
+  currentPage.value = val;
 }
 
 function applyTag(tag) {
@@ -100,6 +124,10 @@ function goDetail(id) {
   const url = router.resolve({ path: `/user/market/${id}` }).href;
   window.open(url, "_blank");
 }
+
+onMounted(() => {
+  fetchMarket();
+});
 </script>
 
 <template>
@@ -136,14 +164,10 @@ function goDetail(id) {
       </button>
     </section>
 
-    <p class="result-count">
-      当前共 {{ filteredData.length }} 个数据集，
-      第 {{ currentPage }} / {{ Math.max(1, Math.ceil(filteredData.length / pageSize)) }} 页
-    </p>
-
     <section class="cards-grid">
       <DatasetCard
-        v-for="item in pagedData"
+        v-loading="loading"
+        v-for="item in marketList"
         :key="item.id"
         :item="item"
         @open="goDetail(item.id)"
@@ -153,16 +177,20 @@ function goDetail(id) {
       />
     </section>
 
-    <p v-if="filteredData.length === 0" class="empty">当前筛选条件下暂无匹配数据集。</p>
+    <p v-if="!loading && marketList.length === 0" class="empty">当前筛选条件下暂无匹配数据集。</p>
 
     <div v-else class="pager-row">
       <el-pagination
         v-model:current-page="currentPage"
         v-model:page-size="pageSize"
         :page-sizes="pageSizeOptions"
-        layout="prev, pager, next, sizes, total"
-        :total="filteredData.length"
-        background
+        :size="size"
+        :disabled="disabled"
+        :background="background"
+        layout="total, sizes, prev, pager, next, jumper"
+        :total="total"
+        @size-change="handleSizeChange"
+        @current-change="handleCurrentChange"
       />
     </div>
   </section>
@@ -249,13 +277,6 @@ function goDetail(id) {
   font-size: 12px;
   background: #fff;
   cursor: pointer;
-}
-
-.result-count {
-  margin: 0;
-  color: #4f5d70;
-  font-size: 16px;
-  font-weight: 600;
 }
 
 .cards-grid {

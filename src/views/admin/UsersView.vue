@@ -6,6 +6,9 @@ import { adminUsers } from "../../mock/data";
 const keyword = ref("");
 const statusFilter = ref("");
 const users = ref(adminUsers.map((item) => ({ ...item })));
+const pageSizeOptions = [6, 9, 12, 20];
+const pageSize = ref(9);
+const currentPage = ref(1);
 
 const filteredUsers = computed(() => {
   const k = keyword.value.trim().toLowerCase();
@@ -26,6 +29,21 @@ const filteredUsers = computed(() => {
 
   return result;
 });
+
+const total = computed(() => filteredUsers.value.length);
+const pagedUsers = computed(() => {
+  const start = (currentPage.value - 1) * pageSize.value;
+  return filteredUsers.value.slice(start, start + pageSize.value);
+});
+
+function handleSizeChange(val) {
+  pageSize.value = val;
+  currentPage.value = 1;
+}
+
+function handleCurrentChange(val) {
+  currentPage.value = val;
+}
 
 function statusClass(status) {
   if (status === "正常") return "done";
@@ -63,7 +81,7 @@ function changeStatus(item) {
       </thead>
 
       <tbody>
-  <tr v-for="item in filteredUsers" :key="item.id">
+  <tr v-for="item in pagedUsers" :key="item.id">
     <td>{{ item.id }}</td>
     <td>{{ item.name }}</td>
     <td>{{ item.role }}</td>
@@ -89,6 +107,19 @@ function changeStatus(item) {
   </tr>
 </tbody>
     </table>
+
+    <div class="pager-row">
+      <el-pagination
+        v-model:current-page="currentPage"
+        v-model:page-size="pageSize"
+        :page-sizes="pageSizeOptions"
+        :background="true"
+        layout="total, sizes, prev, pager, next, jumper"
+        :total="total"
+        @size-change="handleSizeChange"
+        @current-change="handleCurrentChange"
+      />
+    </div>
   </PanelCard>
 </template>
 
@@ -166,5 +197,11 @@ td {
   color: #a74141;
   background: #fdeeee;
   border-color: #f1c5c5;
+}
+
+.pager-row {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 14px;
 }
 </style>

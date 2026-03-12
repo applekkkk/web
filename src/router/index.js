@@ -1,4 +1,4 @@
-﻿import { createRouter, createWebHistory } from "vue-router";
+import { createRouter, createWebHistory } from "vue-router";
 import { useAuthStore } from "../stores/auth";
 
 const LoginView = () => import("../views/LoginView.vue");
@@ -39,7 +39,7 @@ const router = createRouter({
       component: AppShell,
       meta: { requiresAuth: true, role: "user", baseTitle: "在线数据交易平台 - 用户端" },
       children: [
-        { path: "", redirect: { name: "user-dashboard" } },
+        { path: "", redirect: { name: "user-market" } },
         ...userRoutes
       ]
     },
@@ -54,12 +54,7 @@ const router = createRouter({
     },
     {
       path: "/",
-      redirect: () => {
-        const raw = localStorage.getItem("trade-user");
-        if (!raw) return "/login";
-        const user = JSON.parse(raw);
-        return user.role === "admin" ? "/admin" : "/user";
-      }
+      redirect: "/login"
     },
     { path: "/:pathMatch(.*)*", redirect: "/" }
   ]
