@@ -180,6 +180,14 @@ async function submit() {
 
     message.value = `数据集《${form.name}》提交成功，等待管理员审核。`;
     ElMessage.success("提交成功");
+    form.name = "";
+    form.info = "";
+    form.category = categoryOptions[0];
+    form.tags = "";
+    form.price = null;
+    form.summaryText = "";
+    selectedFile.value = null;
+    if (fileInputRef.value) fileInputRef.value.value = "";
   } catch (e) {
     ElMessage.error(e?.message || "上传失败");
   } finally {

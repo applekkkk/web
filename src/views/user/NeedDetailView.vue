@@ -28,7 +28,7 @@ function normalizeRequest(item) {
     acceptorId: item.acceptorId ?? item.acceptor_id ?? null,
     acceptorName: item.acceptorName ?? item.acceptor_name ?? "",
     deliveryFileName: item.deliveryFileName ?? item.delivery_file_name ?? "",
-    needStatus: item.needStatus ?? item.need_status ?? 0
+    needStatus: Number(item.needStatus ?? item.need_status ?? 0)
   };
 }
 
@@ -50,22 +50,15 @@ async function fetchTask() {
   }
 }
 
-onMounted(() => {
-  fetchTask();
-});
+onMounted(fetchTask);
+watch(() => route.params.id, fetchTask);
 
-watch(
-  () => route.params.id,
-  () => {
-    fetchTask();
-  }
-);
+const statusCode = computed(() => Number(task.value?.needStatus ?? 0));
+const canAccept = computed(() => statusCode.value === 0);
 
 const statusText = computed(() => {
-  if (!task.value) return "未承接";
-  const status = Number(task.value.needStatus ?? 0);
-  if (status === 1) return "进行中";
-  if (status === 2) return "已完成";
+  if (statusCode.value === 1) return "进行中";
+  if (statusCode.value === 2) return "已完成";
   return "未承接";
 });
 
@@ -87,7 +80,7 @@ const detailRows = computed(() => {
 
 async function handleAccept() {
   if (!task.value) return;
-  if (statusText.value !== "未承接") {
+  if (!canAccept.value) {
     ElMessage.warning("该任务当前不可承接");
     return;
   }
@@ -106,6 +99,9 @@ async function handleAccept() {
     task.value.needStatus = 1;
     task.value.acceptorId = auth.user?.id ?? null;
     task.value.acceptorName = auth.user?.name || "";
+    auth.updateProfile({
+      points: (auth.user?.points ?? 0) + (task.value.budget ?? 0)
+    });
     ElMessage.success("承接成功");
   } catch (e) {
     ElMessage.error(e?.message || "承接失败");
@@ -125,7 +121,7 @@ async function handleAccept() {
         </div>
       </div>
       <span class="status">{{ statusText }}</span>
-      <button v-if="statusText === '未承接'" class="accept" type="button" @click="handleAccept">承接任务</button>
+      <button v-if="canAccept" class="accept" type="button" @click="handleAccept">承接任务</button>
     </header>
 
     <section class="block">

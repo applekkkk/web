@@ -1,6 +1,6 @@
 ﻿import { computed, ref } from "vue";
 import { defineStore } from "pinia";
-import { authApi } from "../services/api";
+import { authApi, userApi } from "../services/api";
 
 const TOKEN_KEY = "trade-token";
 const USER_KEY = "trade-user";
@@ -50,7 +50,29 @@ export const useAuthStore = defineStore("auth", () => {
 
     localStorage.setItem(TOKEN_KEY, token.value);
     localStorage.setItem(USER_KEY, JSON.stringify(user.value));
+    await refreshUser();
     return res;
+  }
+
+  async function refreshUser() {
+    if (!user.value?.id) return;
+    try {
+      const res = await userApi.getById(user.value.id);
+      if (res?.code !== 200 || !res?.data) return;
+      const data = res.data;
+      user.value = {
+        ...user.value,
+        name: data.name ?? user.value.name,
+        role: Number(data.role) === 1 ? "admin" : "user",
+        points: data.points ?? user.value.points,
+        avatar: data.avatar || user.value.avatar,
+        bio: data.bio || user.value.bio,
+        lastCheckInDate: data.lastCheckInDate || ""
+      };
+      localStorage.setItem(USER_KEY, JSON.stringify(user.value));
+    } catch {
+      // keep current local user state when refresh fails
+    }
   }
 
   function updateProfile(payload) {
@@ -77,13 +99,25 @@ export const useAuthStore = defineStore("auth", () => {
     return `${y}-${m}-${d}`;
   }
 
-  function dailyCheckIn() {
+  async function checkIn() {
     if (!user.value || user.value.role === "admin") {
       return { ok: false, reason: "forbidden" };
     }
     const today = getTodayLocal();
     if (user.value.lastCheckInDate === today) {
       return { ok: false, reason: "already" };
+    }
+    const res = await userApi.checkIn(user.value.id);
+    if (res?.code !== 200) {
+      if (String(res?.message || "").includes("已签到")) {
+        user.value = {
+          ...user.value,
+          lastCheckInDate: today
+        };
+        localStorage.setItem(USER_KEY, JSON.stringify(user.value));
+        return { ok: false, reason: "already" };
+      }
+      return { ok: false, reason: "error", message: res?.message || "签到失败" };
     }
     user.value = {
       ...user.value,
@@ -101,10 +135,12 @@ export const useAuthStore = defineStore("auth", () => {
     canDailyCheckIn,
     login,
     updateProfile,
-    dailyCheckIn,
+    checkIn,
+    refreshUser,
     logout
   };
 });
+
 
 
 

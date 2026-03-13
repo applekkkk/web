@@ -1,14 +1,18 @@
-﻿<script setup>
+<script setup>
 import { computed, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { ElMessage } from "element-plus";
 import request from "../../services/request";
 import { marketData } from "../../mock/data";
+import { orderApi, productApi } from "../../services/api";
+import { useAuthStore } from "../../stores/auth";
 
 const route = useRoute();
 const router = useRouter();
+const auth = useAuthStore();
 const dataset = ref(null);
 const loading = ref(false);
+const buying = ref(false);
 const reviewStatus = ref("待审核");
 const reviewStatusOptions = ["待审核", "审核中", "通过", "驳回"];
 const isAdminView = computed(() => route.path.startsWith("/admin"));
@@ -55,16 +59,37 @@ function normalizeProduct(item) {
   };
 }
 
+function hasPurchased(productId, orderList) {
+  return orderList.some((item) => {
+    const pid = Number(item?.productId ?? 0);
+    const amount = Number(item?.amount ?? 0);
+    return pid === Number(productId) && amount < 0;
+  });
+}
+
+async function refreshPurchasedState() {
+  if (isAdminView.value || !dataset.value?.id || !auth.user?.id) return;
+  try {
+    const res = await orderApi.getUserList(auth.user.id);
+    if (res?.code !== 200) return;
+    const list = Array.isArray(res?.data) ? res.data : [];
+    dataset.value.purchased = hasPurchased(dataset.value.id, list);
+  } catch {
+    // keep current purchased state when order fetch fails
+  }
+}
+
 async function fetchDataset() {
   const id = Number(route.params.id);
   if (!id) return;
   loading.value = true;
   try {
-    const res = await request.get(`/products/${id}`);
+    const res = await productApi.getById(id, { userId: auth.user?.id ?? null });
     if (res?.code !== 200) {
       throw new Error(res?.message || "加载失败");
     }
     dataset.value = normalizeProduct(res.data || {});
+    await refreshPurchasedState();
     suppressReviewSync.value = true;
     reviewStatus.value = statusLabelFromCode(res?.data?.reviewStatus ?? res?.data?.review_status);
     suppressReviewSync.value = false;
@@ -134,23 +159,47 @@ const tags = computed(() => {
 const authorAvatarUrl = computed(() => dataset.value?.authorAvatar || "/img/avatar.png");
 
 function toggleLike() {
-  if (!dataset.value) return;
-  if (dataset.value.liked) {
-    dataset.value.likes = Math.max(0, (dataset.value.likes ?? 0) - 1);
-  } else {
-    dataset.value.likes = (dataset.value.likes ?? 0) + 1;
+  if (!dataset.value?.id) return;
+  if (!auth.user?.id) {
+    ElMessage.warning("请先登录");
+    return;
   }
-  dataset.value.liked = !dataset.value.liked;
+  productApi
+    .setLike(dataset.value.id, auth.user.id, !dataset.value.liked)
+    .then((res) => {
+      if (res?.code !== 200 || !res?.data) {
+        throw new Error(res?.message || "点赞失败");
+      }
+      dataset.value.likes = Number(res.data.likes ?? 0);
+      dataset.value.stars = Number(res.data.stars ?? dataset.value.stars ?? 0);
+      dataset.value.liked = Boolean(res.data.liked);
+      dataset.value.favorited = Boolean(res.data.favorited);
+    })
+    .catch((e) => {
+      ElMessage.error(e?.message || "点赞失败");
+    });
 }
 
 function toggleFavorite() {
-  if (!dataset.value) return;
-  if (dataset.value.favorited) {
-    dataset.value.stars = Math.max(0, (dataset.value.stars ?? 0) - 1);
-  } else {
-    dataset.value.stars = (dataset.value.stars ?? 0) + 1;
+  if (!dataset.value?.id) return;
+  if (!auth.user?.id) {
+    ElMessage.warning("请先登录");
+    return;
   }
-  dataset.value.favorited = !dataset.value.favorited;
+  productApi
+    .setFavorite(dataset.value.id, auth.user.id, !dataset.value.favorited)
+    .then((res) => {
+      if (res?.code !== 200 || !res?.data) {
+        throw new Error(res?.message || "收藏失败");
+      }
+      dataset.value.likes = Number(res.data.likes ?? dataset.value.likes ?? 0);
+      dataset.value.stars = Number(res.data.stars ?? 0);
+      dataset.value.liked = Boolean(res.data.liked);
+      dataset.value.favorited = Boolean(res.data.favorited);
+    })
+    .catch((e) => {
+      ElMessage.error(e?.message || "收藏失败");
+    });
 }
 
 function handleDownload() {
@@ -181,17 +230,71 @@ async function downloadFile() {
     link.click();
     link.remove();
     window.URL.revokeObjectURL(url);
+    const prevDownloads = dataset.value.downloads ?? 0;
     dataset.value.downloads = (dataset.value.downloads ?? 0) + 1;
+    await syncStats(() => {
+      dataset.value.downloads = prevDownloads;
+    });
     ElMessage.success("下载成功");
   } catch (e) {
     ElMessage.error(e?.message || "下载失败");
   }
 }
 
-function handleBuy() {
-  if (!dataset.value || dataset.value.purchased) return;
-  dataset.value.purchased = true;
-  ElMessage.success("购买成功");
+async function syncStats(onFail) {
+  if (!dataset.value?.id) return;
+  try {
+    const res = await request.put(`/products/${dataset.value.id}/stats`, {
+      likes: Number(dataset.value.likes ?? 0),
+      stars: Number(dataset.value.stars ?? 0),
+      downloads: Number(dataset.value.downloads ?? 0)
+    });
+    if (res?.code !== 200) {
+      throw new Error(res?.message || "更新失败");
+    }
+  } catch (e) {
+    if (typeof onFail === "function") onFail();
+    ElMessage.error(e?.message || "更新失败");
+  }
+}
+
+async function handleBuy() {
+  if (!dataset.value || buying.value) return;
+  const price = Number(dataset.value.price ?? 0);
+  const buyerId = auth.user?.id ?? null;
+  if (!buyerId) {
+    ElMessage.error("用户信息缺失");
+    return;
+  }
+  try {
+    buying.value = true;
+    await refreshPurchasedState();
+    if (dataset.value.purchased) {
+      ElMessage.info("该数据已购买");
+      return;
+    }
+    const res = await orderApi.create({
+      buyerId,
+      productId: dataset.value.id,
+      productName: `购买数据: ${dataset.value.name}`,
+      amount: -Math.abs(price)
+    });
+    if (res?.code !== 200) {
+      throw new Error(res?.message || "购买失败");
+    }
+    dataset.value.purchased = true;
+    auth.updateProfile({
+      points: Math.max(0, (auth.user?.points ?? 0) - Math.abs(price))
+    });
+    ElMessage.success("购买成功");
+  } catch (e) {
+    if (String(e?.message || "").includes("已购买")) {
+      dataset.value.purchased = true;
+    }
+    ElMessage.error(e?.message || "购买失败");
+  } finally {
+    buying.value = false;
+  }
 }
 
 function onAuthorAvatarError(event) {
@@ -457,4 +560,3 @@ p {
   }
 }
 </style>
-

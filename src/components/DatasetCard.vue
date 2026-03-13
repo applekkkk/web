@@ -11,6 +11,10 @@ const emit = defineEmits(["open", "like", "favorite", "download"]);
 function onOpen() {
   emit("open", props.item);
 }
+
+function displayAuthor(item) {
+  return item?.author || item?.authorName || item?.author_name || item?.seller || "-";
+}
 </script>
 
 <template>
@@ -29,8 +33,8 @@ function onOpen() {
 
       <div class="card-foot">
         <div class="publisher">
-          <span class="avatar">{{ (item.seller || item.author || "?").charAt(0) }}</span>
-          <span>{{ item.seller || item.author || "-" }}</span>
+          <span class="avatar">{{ displayAuthor(item).charAt(0) }}</span>
+          <span>{{ displayAuthor(item) }}</span>
           <span class="dot">|</span>
           <span>{{ item.uploadDate }} 上传</span>
           <span class="dot">|</span>

@@ -4,11 +4,14 @@ import { useRouter } from "vue-router";
 import { ElMessage } from "element-plus";
 import DatasetCard from "../../components/DatasetCard.vue";
 import request from "../../services/request";
+import { orderApi, productApi } from "../../services/api";
+import { useAuthStore } from "../../stores/auth";
 
 const keyword = ref("");
 const activeCategory = ref("All");
 const activeSort = ref("recommend");
 const router = useRouter();
+const auth = useAuthStore();
 const marketList = ref([]);
 const total = ref(0);
 const loading = ref(false);
@@ -20,6 +23,7 @@ const currentPage = ref(1);
 const disabled = ref(false);
 const background = ref(true);
 const size = ref("default");
+const purchasedIdSet = ref(new Set());
 
 const categories = computed(() => {
   const uniq = new Set(marketList.value.map((item) => item.category));
@@ -28,7 +32,7 @@ const categories = computed(() => {
 
 const tags = computed(() => {
   const all = marketList.value
-    .flatMap((item) => String(item.tags).split(","))
+    .flatMap((item) => String(item.tags || "").split(","))
     .map((item) => item.trim())
     .filter(Boolean);
   return [...new Set(all)];
@@ -37,10 +41,12 @@ const tags = computed(() => {
 async function fetchMarket() {
   loading.value = true;
   try {
+    await fetchPurchasedIds();
     const body = {
       keyword: keyword.value?.trim() || "",
       category: activeCategory.value === "All" ? "" : activeCategory.value,
       sortBy: activeSort.value || "recommend",
+      userId: auth.user?.id ?? null,
       pageNum: currentPage.value,
       pageSize: pageSize.value
     };
@@ -55,7 +61,8 @@ async function fetchMarket() {
       ...item,
       size: item?.size ?? item?.sizeLabel ?? item?.size_label ?? "-",
       author: item?.author ?? item?.authorName ?? item?.author_name ?? "",
-      uploadDate: item?.uploadDate ?? item?.upload_date ?? ""
+      uploadDate: item?.uploadDate ?? item?.upload_date ?? "",
+      purchased: purchasedIdSet.value.has(Number(item.id))
     }));
     total.value = Number(res?.data?.total ?? 0);
   } catch (e) {
@@ -64,6 +71,26 @@ async function fetchMarket() {
     ElMessage.error(e?.message || "加载失败");
   } finally {
     loading.value = false;
+  }
+}
+
+async function fetchPurchasedIds() {
+  if (!auth.user?.id) {
+    purchasedIdSet.value = new Set();
+    return;
+  }
+  try {
+    const res = await orderApi.getUserList(auth.user.id);
+    if (res?.code !== 200) return;
+    const set = new Set(
+      (Array.isArray(res?.data) ? res.data : [])
+        .filter((item) => Number(item?.amount ?? 0) < 0)
+        .map((item) => Number(item?.productId ?? 0))
+        .filter((id) => Number.isFinite(id) && id > 0)
+    );
+    purchasedIdSet.value = set;
+  } catch {
+    // keep current purchased status when order fetch fails
   }
 }
 
@@ -93,22 +120,58 @@ function applyTag(tag) {
   keyword.value = tag;
 }
 
-function toggleLike(item) {
-  if (item.liked) {
-    item.likes = Math.max(0, (item.likes ?? 0) - 1);
-  } else {
-    item.likes = (item.likes ?? 0) + 1;
+async function syncStats(item, onFail) {
+  try {
+    const res = await request.put(`/products/${item.id}/stats`, {
+      likes: Number(item.likes ?? 0),
+      stars: Number(item.stars ?? 0),
+      downloads: Number(item.downloads ?? 0)
+    });
+    if (res?.code !== 200) {
+      throw new Error(res?.message || "更新失败");
+    }
+  } catch (e) {
+    if (typeof onFail === "function") onFail();
+    ElMessage.error(e?.message || "更新失败");
   }
-  item.liked = !item.liked;
 }
 
-function toggleFavorite(item) {
-  if (item.favorited) {
-    item.stars = Math.max(0, (item.stars ?? 0) - 1);
-  } else {
-    item.stars = (item.stars ?? 0) + 1;
+async function toggleLike(item) {
+  if (!auth.user?.id) {
+    ElMessage.warning("请先登录");
+    return;
   }
-  item.favorited = !item.favorited;
+  try {
+    const res = await productApi.setLike(item.id, auth.user.id, !item.liked);
+    if (res?.code !== 200 || !res?.data) {
+      throw new Error(res?.message || "点赞失败");
+    }
+    item.likes = Number(res.data.likes ?? 0);
+    item.stars = Number(res.data.stars ?? item.stars ?? 0);
+    item.liked = Boolean(res.data.liked);
+    item.favorited = Boolean(res.data.favorited);
+  } catch (e) {
+    ElMessage.error(e?.message || "点赞失败");
+  }
+}
+
+async function toggleFavorite(item) {
+  if (!auth.user?.id) {
+    ElMessage.warning("请先登录");
+    return;
+  }
+  try {
+    const res = await productApi.setFavorite(item.id, auth.user.id, !item.favorited);
+    if (res?.code !== 200 || !res?.data) {
+      throw new Error(res?.message || "收藏失败");
+    }
+    item.likes = Number(res.data.likes ?? item.likes ?? 0);
+    item.stars = Number(res.data.stars ?? 0);
+    item.liked = Boolean(res.data.liked);
+    item.favorited = Boolean(res.data.favorited);
+  } catch (e) {
+    ElMessage.error(e?.message || "收藏失败");
+  }
 }
 
 function handleDownload(item) {
@@ -116,8 +179,12 @@ function handleDownload(item) {
     ElMessage.warning("未购买");
     return;
   }
+  const prevDownloads = item.downloads ?? 0;
   item.downloads = (item.downloads ?? 0) + 1;
   ElMessage.success("下载成功");
+  syncStats(item, () => {
+    item.downloads = prevDownloads;
+  });
 }
 
 function goDetail(id) {
@@ -164,9 +231,8 @@ onMounted(() => {
       </button>
     </section>
 
-    <section class="cards-grid">
+    <section class="cards-grid" v-loading="loading">
       <DatasetCard
-        v-loading="loading"
         v-for="item in marketList"
         :key="item.id"
         :item="item"
@@ -296,9 +362,6 @@ onMounted(() => {
   color: #62748d;
   font-size: 13px;
   text-align: center;
-}
-
-@media (max-width: 900px) {
 }
 
 @media (max-width: 700px) {

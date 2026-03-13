@@ -56,8 +56,8 @@ function onAvatarError(event) {
   event.target.src = "/img/avatar.png";
 }
 
-function handleCheckIn() {
-  const result = auth.dailyCheckIn();
+async function handleCheckIn() {
+  const result = await auth.checkIn();
   if (result.ok) {
     ElMessage.success("签到成功，积分 +10");
     return;
@@ -66,7 +66,11 @@ function handleCheckIn() {
     ElMessage.warning("今日已签到");
     return;
   }
-  ElMessage.warning("当前账号不可签到");
+  if (result.reason === "forbidden") {
+    ElMessage.warning("当前账号不可签到");
+    return;
+  }
+  ElMessage.error(result.message || "签到失败");
 }
 
 function toggleAvatarMenu() {
@@ -81,6 +85,7 @@ function onDocumentClick(event) {
 }
 
 onMounted(() => {
+  auth.refreshUser();
   document.addEventListener("click", onDocumentClick);
 });
 
