@@ -8,6 +8,7 @@ export const authApi = {
 export const userApi = {
   getById: (id) => request.get(`/users/${id}`),
   updateProfile: (id, data) => request.put(`/users/${id}`, data),
+  changePassword: (id, data) => request.put(`/users/${id}/password`, data),
   checkIn: (id) => request.post(`/users/${id}/checkin`)
 };
 
@@ -35,7 +36,9 @@ export const customRequestApi = {
   getUserList: (userId) => request.get(`/custom-requests/user/${userId}`),
   getById: (id) => request.get(`/custom-requests/${id}`),
   create: (data) => request.post("/custom-requests", data),
-  accept: (id, params) => request.put(`/custom-requests/${id}/accept`, null, { params })
+  accept: (id, params) => request.put(`/custom-requests/${id}/accept`, null, { params }),
+  submitDelivery: (id, params) => request.put(`/custom-requests/${id}/delivery`, null, { params }),
+  complete: (id, params) => request.put(`/custom-requests/${id}/complete`, null, { params })
 };
 
 export const reviewApi = {

@@ -93,7 +93,8 @@ function normalizeNeed(item) {
   const statusCode = Number(item.needStatus ?? item.need_status ?? 0);
   let statusText = "未承接";
   if (statusCode === 1) statusText = "进行中";
-  if (statusCode === 2) statusText = "已完成";
+  if (statusCode === 2) statusText = "待发布者确认";
+  if (statusCode === 3) statusText = "已完成";
   return {
     id: item.id,
     title: item.title || "",
@@ -149,14 +150,12 @@ function goEditProfile() {
 
 function goDatasetDetail(id) {
   if (route.path.startsWith("/admin")) return;
-  const url = router.resolve({ path: `/user/market/${id}` }).href;
-  window.open(url, "_blank");
+  router.push({ path: `/user/market/${id}` });
 }
 
 function goNeedDetail(item) {
   if (route.path.startsWith("/admin")) return;
-  const url = router.resolve({ path: `/user/custom-bids/${item.id}` }).href;
-  window.open(url, "_blank");
+  router.push({ path: `/user/custom-bids/${item.id}` });
 }
 
 function purchasedIdSet(orderList) {

@@ -93,8 +93,7 @@ function handleCurrentChange(val) {
 }
 
 function openNeed(item) {
-  const url = router.resolve({ path: `/user/custom-bids/${item.id}` }).href;
-  window.open(url, "_blank");
+  router.push({ path: `/user/custom-bids/${item.id}` });
 }
 
 onMounted(() => {

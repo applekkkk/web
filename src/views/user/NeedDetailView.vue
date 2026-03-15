@@ -2,6 +2,7 @@
 import { computed, onMounted, ref, watch } from "vue";
 import { useRoute } from "vue-router";
 import { ElMessage } from "element-plus";
+import request from "../../services/request";
 import { customRequestApi } from "../../services/api";
 import { useAuthStore } from "../../stores/auth";
 
@@ -10,6 +11,10 @@ const auth = useAuthStore();
 
 const task = ref(null);
 const loading = ref(false);
+const submittingDelivery = ref(false);
+const completing = ref(false);
+const deliveryFile = ref(null);
+const deliveryInputRef = ref(null);
 
 function normalizeRequest(item) {
   return {
@@ -54,11 +59,16 @@ onMounted(fetchTask);
 watch(() => route.params.id, fetchTask);
 
 const statusCode = computed(() => Number(task.value?.needStatus ?? 0));
-const canAccept = computed(() => statusCode.value === 0);
+const isPublisher = computed(() => Number(task.value?.publisherId ?? 0) === Number(auth.user?.id ?? 0));
+const isAcceptor = computed(() => Number(task.value?.acceptorId ?? 0) === Number(auth.user?.id ?? 0));
+const canAccept = computed(() => statusCode.value === 0 && !isPublisher.value);
+const canSubmitDelivery = computed(() => statusCode.value === 1 && isAcceptor.value);
+const canConfirmComplete = computed(() => statusCode.value === 2 && isPublisher.value);
 
 const statusText = computed(() => {
   if (statusCode.value === 1) return "进行中";
-  if (statusCode.value === 2) return "已完成";
+  if (statusCode.value === 2) return "待发布者确认";
+  if (statusCode.value === 3) return "已完成";
   return "未承接";
 });
 
@@ -84,10 +94,6 @@ async function handleAccept() {
     ElMessage.warning("该任务当前不可承接");
     return;
   }
-  if (task.value.publisherId && auth.user?.id && task.value.publisherId === auth.user.id) {
-    ElMessage.warning("不能承接自己发布的任务");
-    return;
-  }
   try {
     const res = await customRequestApi.accept(task.value.id, {
       acceptorId: auth.user?.id ?? null,
@@ -99,12 +105,101 @@ async function handleAccept() {
     task.value.needStatus = 1;
     task.value.acceptorId = auth.user?.id ?? null;
     task.value.acceptorName = auth.user?.name || "";
-    auth.updateProfile({
-      points: (auth.user?.points ?? 0) + (task.value.budget ?? 0)
-    });
     ElMessage.success("承接成功");
   } catch (e) {
     ElMessage.error(e?.message || "承接失败");
+  }
+}
+
+function chooseDeliveryFile() {
+  deliveryInputRef.value?.click();
+}
+
+function onDeliveryFileChange(event) {
+  const file = event.target.files?.[0];
+  deliveryFile.value = file || null;
+}
+
+async function uploadCsv(file) {
+  const fd = new FormData();
+  fd.append("file", file);
+  const res = await request.post("/files/upload", fd, {
+    headers: { "Content-Type": "multipart/form-data" }
+  });
+  if (res?.code !== 200) {
+    throw new Error(res?.message || "文件上传失败");
+  }
+  return res?.data?.savedName || "";
+}
+
+async function handleSubmitDelivery() {
+  if (!task.value || !canSubmitDelivery.value) return;
+  if (!deliveryFile.value) {
+    ElMessage.warning("请先选择交付文件");
+    return;
+  }
+  submittingDelivery.value = true;
+  try {
+    const savedName = await uploadCsv(deliveryFile.value);
+    const res = await customRequestApi.submitDelivery(task.value.id, {
+      acceptorId: auth.user?.id ?? null,
+      deliveryFileName: savedName
+    });
+    if (res?.code !== 200) {
+      throw new Error(res?.message || "提交交付失败");
+    }
+    task.value.deliveryFileName = savedName;
+    task.value.needStatus = 2;
+    deliveryFile.value = null;
+    if (deliveryInputRef.value) deliveryInputRef.value.value = "";
+    ElMessage.success("交付已提交，等待发布者确认");
+  } catch (e) {
+    ElMessage.error(e?.message || "提交交付失败");
+  } finally {
+    submittingDelivery.value = false;
+  }
+}
+
+async function handleComplete() {
+  if (!task.value || !canConfirmComplete.value) return;
+  completing.value = true;
+  try {
+    const res = await customRequestApi.complete(task.value.id, {
+      publisherId: auth.user?.id ?? null
+    });
+    if (res?.code !== 200) {
+      throw new Error(res?.message || "确认完成失败");
+    }
+    task.value.needStatus = 3;
+    auth.updateProfile({
+      points: Number(auth.user?.points ?? 0) - Number(task.value.budget ?? 0)
+    });
+    ElMessage.success("任务已完成并完成积分结算");
+  } catch (e) {
+    ElMessage.error(e?.message || "确认完成失败");
+  } finally {
+    completing.value = false;
+  }
+}
+
+async function downloadFile(name) {
+  if (!name) return;
+  try {
+    const res = await request.get("/files/download", {
+      params: { name },
+      responseType: "blob"
+    });
+    const blob = res instanceof Blob ? res : new Blob([res]);
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = name;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+  } catch (e) {
+    ElMessage.error(e?.message || "下载失败");
   }
 }
 </script>
@@ -121,12 +216,32 @@ async function handleAccept() {
         </div>
       </div>
       <span class="status">{{ statusText }}</span>
-      <button v-if="canAccept" class="accept" type="button" @click="handleAccept">承接任务</button>
+      <button v-if="canAccept" class="action-btn" type="button" @click="handleAccept">承接任务</button>
+      <button v-else-if="canConfirmComplete" class="action-btn done" type="button" :disabled="completing" @click="handleComplete">
+        {{ completing ? "确认中..." : "确认完成并结算" }}
+      </button>
     </header>
+
+    <section v-if="canSubmitDelivery" class="delivery-panel">
+      <input ref="deliveryInputRef" type="file" class="hidden-file" accept=".csv,text/csv" @change="onDeliveryFileChange" />
+      <button type="button" class="small-btn" @click="chooseDeliveryFile">选择交付文件</button>
+      <span class="file-name">{{ deliveryFile ? deliveryFile.name : "未选择文件" }}</span>
+      <button type="button" class="small-btn primary" :disabled="submittingDelivery" @click="handleSubmitDelivery">
+        {{ submittingDelivery ? "提交中..." : "提交交付" }}
+      </button>
+    </section>
 
     <section class="block">
       <h2>任务描述</h2>
       <p>{{ task.description || "发布者未填写任务描述。" }}</p>
+    </section>
+
+    <section class="block">
+      <h2>任务文件</h2>
+      <div class="file-actions">
+        <button type="button" class="small-btn" :disabled="!task.attachmentName" @click="downloadFile(task.attachmentName)">下载示例文件</button>
+        <button type="button" class="small-btn" :disabled="!task.deliveryFileName" @click="downloadFile(task.deliveryFileName)">下载交付文件</button>
+      </div>
     </section>
 
     <section class="block">
@@ -180,14 +295,6 @@ h1 {
   font-size: 14px;
 }
 
-.meta-label {
-  font-weight: 400;
-}
-
-.meta-value {
-  font-weight: 300;
-}
-
 .status {
   border: 1px solid #d5deea;
   border-radius: 999px;
@@ -197,13 +304,53 @@ h1 {
   font-size: 12px;
 }
 
-.accept {
+.action-btn {
   border: 1px solid #d8b989;
   border-radius: 999px;
   padding: 8px 16px;
   color: #b98335;
   background: #fff;
   cursor: pointer;
+}
+
+.action-btn.done {
+  border-color: #2f5a90;
+  color: #2f5a90;
+}
+
+.delivery-panel {
+  margin-top: 14px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  border: 1px dashed #d8e2f1;
+  border-radius: 12px;
+  padding: 10px 12px;
+}
+
+.hidden-file {
+  display: none;
+}
+
+.file-name {
+  color: #5b6a80;
+  font-size: 13px;
+}
+
+.small-btn {
+  border: 1px solid #c7d7ef;
+  border-radius: 8px;
+  padding: 6px 12px;
+  color: #2f4e74;
+  background: #fff;
+  cursor: pointer;
+}
+
+.small-btn.primary {
+  border-color: #2f5a90;
+  color: #fff;
+  background: #2f5a90;
 }
 
 .block {
@@ -221,6 +368,11 @@ p {
   color: #414e5f;
   font-size: 15px;
   line-height: 1.8;
+}
+
+.file-actions {
+  display: flex;
+  gap: 10px;
 }
 
 .table {

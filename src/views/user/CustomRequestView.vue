@@ -1,13 +1,13 @@
-﻿<script setup>
-import { reactive, ref } from "vue";
+<script setup>
+import { computed, reactive, ref } from "vue";
 import { ElMessage } from "element-plus";
 import { useAuthStore } from "../../stores/auth";
 import { customRequestApi } from "../../services/api";
 import request from "../../services/request";
 
 const auth = useAuthStore();
-
 const categoryOptions = ["图数据", "文本", "时空", "其他"];
+const maxBudget = computed(() => Number(auth.user?.points ?? 0));
 
 const form = reactive({
   title: "",
@@ -15,14 +15,12 @@ const form = reactive({
   category: "图数据",
   amount: "",
   contact: "",
-  budget: 300,
-  deadline: ""
+  budget: null
 });
 
 const selectedFile = ref(null);
 const fileInputRef = ref(null);
 const submitting = ref(false);
-const size = ref("default");
 
 function chooseFile() {
   fileInputRef.value?.click();
@@ -31,14 +29,6 @@ function chooseFile() {
 function onFileChange(event) {
   const file = event.target.files?.[0];
   selectedFile.value = file || null;
-}
-
-function formatDate(val) {
-  if (!val) return "";
-  if (typeof val === "string") return val.slice(0, 10);
-  const date = new Date(val);
-  if (Number.isNaN(date.getTime())) return "";
-  return date.toISOString().slice(0, 10);
 }
 
 async function uploadAttachment(file) {
@@ -54,16 +44,19 @@ async function uploadAttachment(file) {
 }
 
 async function submit() {
-  if (!form.title.trim() || !form.description.trim() || !form.amount || !form.contact.trim() || !form.deadline || !form.budget) {
+  if (!form.title.trim() || !form.description.trim() || !form.amount || !form.contact.trim()) {
     ElMessage.warning("请填写完整任务信息");
     return;
   }
-  const deadline = formatDate(form.deadline);
-  if (!deadline) {
-    ElMessage.warning("请选择有效的截止日期");
+  const budget = Number(form.budget);
+  if (!Number.isFinite(budget) || budget <= 0) {
+    ElMessage.warning("请填写有效的积分预算");
     return;
   }
-
+  if (budget > maxBudget.value) {
+    ElMessage.warning(`积分预算不能超过当前积分（${maxBudget.value}）`);
+    return;
+  }
   submitting.value = true;
   try {
     let attachmentName = "";
@@ -77,8 +70,7 @@ async function submit() {
       category: form.category,
       tags: "",
       amount: String(form.amount),
-      budget: Number(form.budget),
-      deadline,
+      budget,
       publisherId: auth.user?.id ?? null,
       publisherName: auth.user?.name || "当前用户",
       publisherContact: form.contact.trim(),
@@ -95,8 +87,7 @@ async function submit() {
     form.category = "图数据";
     form.amount = "";
     form.contact = "";
-    form.budget = 300;
-    form.deadline = "";
+    form.budget = null;
     selectedFile.value = null;
     if (fileInputRef.value) fileInputRef.value.value = "";
 
@@ -112,7 +103,6 @@ async function submit() {
 <template>
   <section class="request-page">
     <section class="form-card">
-
       <div class="form-grid">
         <label>
           数据标题
@@ -128,7 +118,7 @@ async function submit() {
 
         <label class="full">
           任务描述
-          <textarea v-model.trim="form.description" rows="4" placeholder="描述需要的数据的字段格式，数据内容等"></textarea>
+          <textarea v-model.trim="form.description" rows="4" placeholder="描述需要的数据字段和内容要求"></textarea>
         </label>
 
         <label>
@@ -143,21 +133,12 @@ async function submit() {
 
         <label>
           预算（积分）
-          <input v-model.number="form.budget" type="number" min="1" />
-        </label>
-
-        <label class="full">
-          截止日期
-            <el-date-picker
-            v-model="form.deadline"
-            type="date"
-            placeholder="Pick a day"
-            :size="size"
-          />
+          <input v-model.number="form.budget" type="number" min="1" :max="maxBudget" placeholder="请输入积分预算" />
+          <small class="budget-tip">当前可用积分：{{ maxBudget }}</small>
         </label>
 
         <div class="full upload-box">
-          <label class="sample-tip">示例数据文件（csv文件，可选）</label>
+          <label class="sample-tip">示例数据文件（csv 文件，可选）</label>
           <input ref="fileInputRef" type="file" accept=".csv,text/csv" class="hidden-file" @change="onFileChange" />
           <button type="button" class="btn ghost" @click="chooseFile">选择附件</button>
           <span class="file-name">{{ selectedFile ? selectedFile.name : "未选择附件" }}</span>
@@ -184,11 +165,6 @@ async function submit() {
   border-radius: 14px;
   padding: 14px;
   background: #fff;
-}
-
-h2 {
-  margin: 0 0 10px;
-  color: #1f2a37;
 }
 
 .form-grid {
@@ -218,6 +194,12 @@ textarea {
   background: #fff;
 }
 
+.budget-tip {
+  display: block;
+  margin-top: 4px;
+  color: #7a8ca6;
+}
+
 .upload-box {
   display: flex;
   align-items: center;
@@ -233,6 +215,7 @@ textarea {
   color: #637894;
   font-size: 12px;
 }
+
 .sample-tip {
   width: 100%;
   color: #7a8ca6;

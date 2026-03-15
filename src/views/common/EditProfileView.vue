@@ -3,6 +3,7 @@ import { reactive, ref } from "vue";
 import { useRouter } from "vue-router";
 import { ElMessage } from "element-plus";
 import { useAuthStore } from "../../stores/auth";
+import { userApi } from "../../services/api";
 
 const router = useRouter();
 const auth = useAuthStore();
@@ -36,13 +37,17 @@ function onAvatarChange(event) {
   reader.readAsDataURL(file);
 }
 
-function onSave() {
+async function onSave() {
+  if (!auth.user?.id) {
+    ElMessage.error("请先登录");
+    return;
+  }
   if (!form.name.trim()) {
     ElMessage.error("用户名不能为空");
     return;
   }
 
-  const payload = {
+  const profilePayload = {
     name: form.name.trim(),
     avatar: form.avatar,
     bio: form.bio.trim()
@@ -55,28 +60,36 @@ function onSave() {
       ElMessage.error("修改密码时需填写旧密码和两次新密码");
       return;
     }
-    if (!auth.user?.password) {
-      ElMessage.error("未检测到原密码，请重新登录后再修改");
-      return;
-    }
-    if (form.oldPassword !== auth.user.password) {
-      ElMessage.error("旧密码不正确");
-      return;
-    }
     if (form.newPassword !== form.confirmPassword) {
       ElMessage.error("两次新密码不一致");
       return;
     }
-    if (form.newPassword.length <= 8) {
-      ElMessage.error("新密码长度必须超过 8 位");
-      return;
-    }
-    payload.password = form.newPassword;
   }
 
-  auth.updateProfile(payload);
-  ElMessage.success("个人资料已更新");
-  router.back();
+  try {
+    const profileRes = await userApi.updateProfile(auth.user.id, profilePayload);
+    if (profileRes?.code !== 200) {
+      ElMessage.error(profileRes?.message || "个人资料更新失败");
+      return;
+    }
+
+    if (hasAnyPasswordInput) {
+      const pwdRes = await userApi.changePassword(auth.user.id, {
+        oldPassword: form.oldPassword,
+        newPassword: form.newPassword
+      });
+      if (pwdRes?.code !== 200) {
+        ElMessage.error(pwdRes?.message || "密码修改失败");
+        return;
+      }
+    }
+
+    auth.updateProfile(profilePayload);
+    ElMessage.success(hasAnyPasswordInput ? "个人资料和密码已更新" : "个人资料已更新");
+    router.back();
+  } catch (error) {
+    ElMessage.error(error?.message || "保存失败");
+  }
 }
 
 function onCancel() {
@@ -89,12 +102,6 @@ function onNameBlur() {
   }
 }
 
-function onNewPasswordBlur() {
-  if (!form.newPassword) return;
-  if (form.newPassword.length <= 8) {
-    ElMessage.warning("密码长度必须超过 8 位");
-  }
-}
 </script>
 
 <template>
@@ -135,7 +142,6 @@ function onNewPasswordBlur() {
           type="password"
           show-password
           placeholder="请输入新密码"
-          @blur="onNewPasswordBlur"
         />
       </label>
 

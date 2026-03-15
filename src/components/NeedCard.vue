@@ -26,7 +26,15 @@ function onOpen() {
 }
 
 function statusText(item) {
-  return item.needStatus || (item.acceptedBy ? "进行中" : "未承接");
+  const raw = item.needStatus;
+  if (typeof raw === "number") {
+    if (raw === 1) return "进行中";
+    if (raw === 2) return "待发布者确认";
+    if (raw === 3) return "已完成";
+    return "未承接";
+  }
+  if (typeof raw === "string" && raw.trim()) return raw;
+  return item.acceptedBy ? "进行中" : "未承接";
 }
 
 function statusClass(item) {
