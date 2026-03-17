@@ -17,7 +17,8 @@ const userMenus = [
   { to: "/user/upload", label: "数据上传" },
   { to: "/user/custom-bids", label: "任务市场" },
   { to: "/user/custom-requests", label: "任务发布" },
-  { to: "/user/processing", label: "数据处理" },
+  { to: "/user/feedback", label: "管理员留言" },
+  { to: "/user/processing", label: "AI数据处理" },
   { to: "/user/profile", label: "个人中心" }
 ];
 
@@ -25,6 +26,7 @@ const adminMenus = [
   { to: "/admin/review", label: "数据审核" },
   { to: "/admin/users", label: "用户管理" },
   { to: "/admin/orders", label: "订单监控" },
+  { to: "/admin/messages", label: "留言查看" },
   { to: "/admin/profile", label: "个人中心" }
 ];
 

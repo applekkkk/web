@@ -41,9 +41,12 @@ export const useAuthStore = defineStore("auth", () => {
       id: data.id,
       name: data.name || username,
       role,
+      status: Number(data.status ?? 0),
       points: data.points ?? 0,
       avatar: data.avatar || "/img/avatar.png",
       bio: data.bio || "",
+      email: data.email || "",
+      emailVerified: Number(data.emailVerified ?? 0),
       password: "",
       lastCheckInDate: data.lastCheckInDate || ""
     };
@@ -67,6 +70,9 @@ export const useAuthStore = defineStore("auth", () => {
         points: data.points ?? user.value.points,
         avatar: data.avatar || user.value.avatar,
         bio: data.bio || user.value.bio,
+        email: data.email ?? user.value.email,
+        emailVerified: Number(data.emailVerified ?? user.value.emailVerified ?? 0),
+        status: Number(data.status ?? user.value.status ?? 0),
         lastCheckInDate: data.lastCheckInDate || ""
       };
       localStorage.setItem(USER_KEY, JSON.stringify(user.value));

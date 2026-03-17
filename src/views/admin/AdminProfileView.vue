@@ -1,21 +1,40 @@
 <script setup>
-import { computed } from "vue";
+import { computed, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import { useAuthStore } from "../../stores/auth";
-import { pendingReviews, orderList } from "../../mock/data";
+import { messageApi, orderApi, reviewApi, userApi } from "../../services/api";
 
 const router = useRouter();
 const auth = useAuthStore();
 
 const avatarUrl = computed(() => auth.user?.avatar || "/img/avatar.png");
 const userName = computed(() => auth.user?.name || "平台管理员");
-const lastLogin = "2026-03-09";
+const lastLogin = computed(() => new Date().toISOString().slice(0, 10));
+
+const pendingReviewCount = ref(0);
+const orderCount = ref(0);
+const userCount = ref(0);
+const messageCount = ref(0);
 
 const rows = computed(() => [
-  { label: "待审核数据", value: pendingReviews.length, route: "admin-review", query: { status: "待审核" } },
-  { label: "交易订单", value: orderList.length, route: "admin-orders" },
-  { label: "用户管理", value: 218, route: "admin-users" },
+  { label: "待审核数据", value: pendingReviewCount.value, route: "admin-review", query: { status: "待审核" } },
+  { label: "交易订单", value: orderCount.value, route: "admin-orders" },
+  { label: "用户管理", value: userCount.value, route: "admin-users" },
+  { label: "留言查看", value: messageCount.value, route: "admin-messages" }
 ]);
+
+async function loadStats() {
+  const [reviewRes, orderRes, userRes, msgRes] = await Promise.all([
+    reviewApi.getPendingList().catch(() => null),
+    orderApi.getAll().catch(() => null),
+    userApi.getAll().catch(() => null),
+    messageApi.getAll().catch(() => null)
+  ]);
+  pendingReviewCount.value = Array.isArray(reviewRes?.data) ? reviewRes.data.length : 0;
+  orderCount.value = Array.isArray(orderRes?.data) ? orderRes.data.length : 0;
+  userCount.value = Array.isArray(userRes?.data) ? userRes.data.length : 0;
+  messageCount.value = Array.isArray(msgRes?.data) ? msgRes.data.length : 0;
+}
 
 function goToPage(item) {
   router.push({ name: item.route, query: item.query || {} });
@@ -28,6 +47,8 @@ function onAvatarError(event) {
 function goEditProfile() {
   router.push("/admin/profile/edit");
 }
+
+onMounted(loadStats);
 </script>
 
 <template>
@@ -50,116 +71,16 @@ function goEditProfile() {
 </template>
 
 <style scoped>
-.admin-profile {
-  display: grid;
-  grid-template-columns: 360px 1fr;
-  gap: 24px;
-  align-items: stretch;
-  min-height: 360px;
-}
-
-.profile-block {
-  border: 1px solid #dbe4f3;
-  border-radius: 14px;
-  padding: 22px 20px;
-  background: #fff;
-  display: grid;
-  justify-items: start;
-  gap: 10px;
-  align-content: start;
-  height: 360px;
-  box-sizing: border-box;
-}
-
-.avatar {
-  width: 86px;
-  height: 86px;
-  border-radius: 14px;
-  object-fit: cover;
-}
-
-h1 {
-  margin: 6px 0 0;
-  color: #1f2a37;
-  font-size: 30px;
-}
-
-.role {
-  margin: 0;
-  color: #476487;
-  font-size: 14px;
-}
-
-.meta {
-  margin: 0;
-  color: #7a8ea9;
-  font-size: 13px;
-}
-
-.edit-btn {
-  margin-top: 8px;
-  border: 1px solid #c3d3ee;
-  border-radius: 999px;
-  padding: 8px 16px;
-  color: #2f578d;
-  background: #fff;
-  cursor: pointer;
-}
-
-.overview-block {
-  display: grid;
-  grid-template-columns: 1fr;
-  grid-template-rows: repeat(3, 1fr);
-  gap: 18px;
-  height: 360px;
-}
-
-.overview-card {
-  border: 1px solid #dce5f2;
-  border-radius: 14px;
-  padding: 0 20px;
-  background: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.overview-card:hover {
-  background: #f8fbff;
-  border-color: #b8d0f0;
-}
-
-.row-label {
-  color: #5f728f;
-  font-size: 26px;
-  line-height: 1;
-  font-weight: 500;
-}
-
-.row-value {
-  color: #1f4a80;
-  font-size: 34px;
-  line-height: 1;
-  font-weight: 600;
-}
-
-@media (max-width: 960px) {
-  .admin-profile {
-    grid-template-columns: 1fr;
-    min-height: auto;
-  }
-
-  .overview-block {
-    grid-template-columns: 1fr;
-    grid-template-rows: none;
-    height: auto;
-  }
-
-  .profile-block {
-    height: auto;
-    min-height: 320px;
-  }
-}
+.admin-profile { display: grid; grid-template-columns: 360px 1fr; gap: 24px; align-items: stretch; min-height: 360px; }
+.profile-block { border: 1px solid #dbe4f3; border-radius: 14px; padding: 22px 20px; background: #fff; display: grid; justify-items: start; gap: 10px; align-content: start; box-sizing: border-box; }
+.avatar { width: 86px; height: 86px; border-radius: 14px; object-fit: cover; }
+h1 { margin: 6px 0 0; color: #1f2a37; font-size: 30px; }
+.role { margin: 0; color: #476487; font-size: 14px; }
+.meta { margin: 0; color: #7a8ea9; font-size: 13px; }
+.edit-btn { margin-top: 8px; border: 1px solid #c3d3ee; border-radius: 999px; padding: 8px 16px; color: #2f578d; background: #fff; cursor: pointer; }
+.overview-block { display: grid; grid-template-columns: 1fr; grid-template-rows: repeat(4, minmax(86px, 1fr)); gap: 14px; min-height: 400px; }
+.overview-card { border: 1px solid #dce5f2; border-radius: 14px; padding: 0 20px; background: #fff; display: flex; align-items: center; justify-content: space-between; cursor: pointer; transition: all 0.2s; min-height: 86px; }
+.overview-card:hover { background: #f8fbff; border-color: #b8d0f0; }
+.row-label { color: #5f728f; font-size: 26px; font-weight: 500; }
+.row-value { color: #1f4a80; font-size: 34px; font-weight: 600; }
 </style>

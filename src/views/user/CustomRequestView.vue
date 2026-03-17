@@ -44,6 +44,10 @@ async function uploadAttachment(file) {
 }
 
 async function submit() {
+  if (Number(auth.user?.emailVerified ?? 0) !== 1 || !auth.user?.email) {
+    ElMessage.warning("请先在个人资料完成邮箱验证后再发布任务");
+    return;
+  }
   if (!form.title.trim() || !form.description.trim() || !form.amount || !form.contact.trim()) {
     ElMessage.warning("请填写完整任务信息");
     return;

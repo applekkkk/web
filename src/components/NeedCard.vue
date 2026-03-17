@@ -73,7 +73,6 @@ function rewardText(item) {
     <div class="meta">
       <span>发布者：{{ item.publisher || "-" }}</span>
       <span>预算：{{ item.budget }} 积分</span>
-      <span>截止：{{ item.deadline }}</span>
       <span v-if="item.attachmentName">附件：{{ item.attachmentName }}</span>
       <span v-if="item.acceptedBy">承接人：{{ item.acceptedBy }}</span>
     </div>

@@ -11,7 +11,7 @@ const orders = ref([]);
 
 function normalizeOrder(item) {
   const amount = Number(item.amount ?? 0);
-  const type = amount >= 0 ? "承接任务" : "购买数据";
+  const type = amount === 0 ? "承接记录" : amount > 0 ? "任务结算收入" : "任务结算支出/购买数据";
   const title = item.productName || (amount >= 0 ? "承接任务" : "购买数据");
   return {
     id: item.id,
@@ -19,13 +19,18 @@ function normalizeOrder(item) {
     amount,
     type,
     title,
-    createdAt: item.createdAt || ""
+    createdAt: formatTime(item.createdAt || "")
   };
+}
+
+function formatTime(value) {
+  return String(value || "").replace("T", " ");
 }
 
 const displayOrders = computed(() => orders.value.map(normalizeOrder));
 
 function amountText(amount) {
+  if (Number(amount) === 0) return "\\";
   return amount > 0 ? `+${amount}` : `${amount}`;
 }
 

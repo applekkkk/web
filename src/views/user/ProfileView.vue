@@ -123,8 +123,12 @@ function normalizeOrder(item) {
     amount,
     type,
     title,
-    createdAt: item.createdAt || ""
+    createdAt: formatTime(item.createdAt || "")
   };
+}
+
+function formatTime(value) {
+  return String(value || "").replace("T", " ");
 }
 
 function dedupeProducts(list) {

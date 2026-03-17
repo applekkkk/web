@@ -7,8 +7,11 @@ export const authApi = {
 
 export const userApi = {
   getById: (id) => request.get(`/users/${id}`),
+  getAll: () => request.get("/users/all"),
   updateProfile: (id, data) => request.put(`/users/${id}`, data),
   changePassword: (id, data) => request.put(`/users/${id}/password`, data),
+  sendEmailCode: (id, email) => request.post(`/users/${id}/email/code`, null, { params: { email } }),
+  verifyEmail: (id, email, code) => request.post(`/users/${id}/email/verify`, null, { params: { email, code } }),
   checkIn: (id) => request.post(`/users/${id}/checkin`)
 };
 
@@ -38,7 +41,8 @@ export const customRequestApi = {
   create: (data) => request.post("/custom-requests", data),
   accept: (id, params) => request.put(`/custom-requests/${id}/accept`, null, { params }),
   submitDelivery: (id, params) => request.put(`/custom-requests/${id}/delivery`, null, { params }),
-  complete: (id, params) => request.put(`/custom-requests/${id}/complete`, null, { params })
+  complete: (id, params) => request.put(`/custom-requests/${id}/complete`, null, { params }),
+  reject: (id, params) => request.put(`/custom-requests/${id}/reject`, null, { params })
 };
 
 export const reviewApi = {
@@ -54,4 +58,10 @@ export const walletApi = {
 
 export const warehouseApi = {
   getList: (userId) => request.get(`/warehouse/${userId}`)
+};
+
+export const messageApi = {
+  create: (userId, content) => request.post("/messages", null, { params: { userId, content } }),
+  getUserList: (userId) => request.get(`/messages/user/${userId}`),
+  getAll: () => request.get("/messages/all")
 };
