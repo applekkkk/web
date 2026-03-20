@@ -1,0 +1,20 @@
+[33m37599c0[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m)[m feat: AI数据处理
+[33m1472b08[m[33m ([m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m feat:新增打回任务结果功能
+[33ma4e0f00[m feat:个人信息编辑功能
+[33me0b2dc9[m feat:数据商品收藏功能
+[33m4ac9b73[m feat: 任务市场与任务上传
+[33me6e8900[m feat:数据市场与上传接入后端
+[33ma95b6f0[m feat: 登录注册接入后端
+[33m207f4f6[m fix: 管理员个人中心修改
+[33mb9d9cb3[m fix: 直接在列表可以对用户进行封禁等状态改变操作
+[33m34b476f[m feat: 平台管理员
+[33m9aab9e5[m feat: 任务管理模块
+[33m04d1321[m refactor: 将用户个人页面与管理人员个人页面进行区分
+[33m194a185[m refactor: 将数据卡片抽取至公共的component组件
+[33mcabe90b[m feat: 个人中心添加查看收藏，个人仓库，上传的数据的功能
+[33m179a1dd[m feat: 个人中心添加更多功能
+[33mdafe0c7[m feat: 数据上传
+[33m5d50ae5[m feat: 创建个人中心
+[33mbfb6a19[m feat: 数据详情页面
+[33ma2b292b[m feat: 数据广场页面样式
+[33m7c54485[m chore: init web project

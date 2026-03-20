@@ -2,16 +2,16 @@
 import { computed, reactive, ref } from "vue";
 import { ElMessage } from "element-plus";
 import { useAuthStore } from "../../stores/auth";
-import * as analyticsApi from "../../services/analyticsApi";
+import { downloadProcessedCsv, runProcessTask } from "../../services/analyticsApi";
 
 const auth = useAuthStore();
-const analytics = analyticsApi;
-
 const running = ref(false);
 const selectedFile = ref(null);
 const fileInputRef = ref(null);
+
 const pointsCost = ref(10);
 const reportMarkdown = ref("");
+const processPreview = ref({ columns: [], rows: [] });
 
 const form = reactive({
   instruction: ""
@@ -30,8 +30,23 @@ function chooseFile() {
 }
 
 function onFileChange(event) {
-  const file = event.target.files?.[0];
-  selectedFile.value = file || null;
+  selectedFile.value = event.target.files?.[0] || null;
+}
+
+function normalizePreview(preview) {
+  if (Array.isArray(preview)) {
+    const rows = preview;
+    const columns = rows.length ? Object.keys(rows[0] || {}) : [];
+    return { columns, rows };
+  }
+
+  if (preview && typeof preview === "object") {
+    const columns = Array.isArray(preview.columns) ? preview.columns : [];
+    const rows = Array.isArray(preview.rows) ? preview.rows : [];
+    if (columns.length || rows.length) return { columns, rows };
+  }
+
+  return { columns: [], rows: [] };
 }
 
 async function handleRun() {
@@ -40,59 +55,65 @@ async function handleRun() {
     return;
   }
   if (!form.instruction.trim()) {
-    ElMessage.warning("请先输入处理指令");
+    ElMessage.warning("请输入处理指令");
     return;
   }
   if (!userId.value) {
-    ElMessage.warning("未识别到用户，请重新登录");
+    ElMessage.warning("未获取到用户信息，请重新登录");
     return;
   }
   if (remainPoints.value < pointsCost.value) {
-    ElMessage.warning("积分不足，无法执行");
+    ElMessage.warning("积分不足，无法执行本次处理");
     return;
   }
 
   running.value = true;
   try {
-    const result = await analytics.runProcessTask({
+    const result = await runProcessTask({
       file: selectedFile.value,
       userId: userId.value,
       userPrompt: form.instruction.trim()
     });
 
-    reportMarkdown.value = extractReport(result);
-    auth.updateProfile({ points: remainPoints.value - pointsCost.value });
-    ElMessage.success("处理完成，正在下载结果文件");
-    await handleDownload();
+    const payload = result?.data ?? result ?? {};
+    const report = payload.report ?? payload.markdown ?? "";
+    const preview = payload.preview ?? payload.table ?? payload.rows ?? [];
+
+    reportMarkdown.value = String(report || "");
+    processPreview.value = normalizePreview(preview);
+
+    if (typeof auth.updateProfile === "function") {
+      auth.updateProfile({ points: Math.max(0, remainPoints.value - pointsCost.value) });
+    }
+
+    ElMessage.success("处理完成");
   } catch (error) {
-    ElMessage.error(error?.message || "处理执行失败");
+    ElMessage.error(error?.message || "处理失败");
   } finally {
     running.value = false;
   }
 }
 
-function extractReport(result) {
-  if (typeof result === "string") return result;
-  if (result?.report) return String(result.report);
-  if (result?.data?.report) return String(result.data.report);
-  if (result?.messages?.length) {
-    const last = result.messages[result.messages.length - 1];
-    if (last?.content) return String(last.content);
-  }
-  return "处理已完成，但未返回报告内容。";
-}
-
 async function handleDownload() {
-  const csvData = await analytics.downloadProcessedCsv(userId.value);
-  const blob = csvData instanceof Blob ? csvData : new Blob([csvData], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = "analytics_processed.csv";
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  URL.revokeObjectURL(url);
+  if (!userId.value) {
+    ElMessage.warning("未获取到用户信息，请重新登录");
+    return;
+  }
+
+  try {
+    const csvData = await downloadProcessedCsv(userId.value);
+    const blob = csvData instanceof Blob ? csvData : new Blob([csvData], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "analytics_processed.csv";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  } catch (error) {
+    ElMessage.error(error?.message || "下载失败");
+  }
 }
 
 function renderMarkdown(markdownText) {
@@ -110,12 +131,13 @@ function renderMarkdown(markdownText) {
       }
       continue;
     }
+
     if (line.startsWith("### ")) {
       if (inList) {
         blocks.push("</ul>");
         inList = false;
       }
-      blocks.push(`<h3>${formatInline(line.slice(4))}</h3>`);
+      blocks.push(`<h3>${line.slice(4)}</h3>`);
       continue;
     }
     if (line.startsWith("## ")) {
@@ -123,23 +145,42 @@ function renderMarkdown(markdownText) {
         blocks.push("</ul>");
         inList = false;
       }
-      blocks.push(`<h2>${formatInline(line.slice(3))}</h2>`);
+      blocks.push(`<h2>${line.slice(3)}</h2>`);
       continue;
     }
-    if (line.startsWith("- ") || line.startsWith("* ") || /^\d+\.\s+/.test(line)) {
+    if (line.startsWith("# ")) {
+      if (inList) {
+        blocks.push("</ul>");
+        inList = false;
+      }
+      blocks.push(`<h1>${line.slice(2)}</h1>`);
+      continue;
+    }
+
+    if (line.startsWith("- ")) {
       if (!inList) {
         blocks.push("<ul>");
         inList = true;
       }
-      blocks.push(`<li>${formatInline(line.replace(/^\d+\.\s+/, "").slice(2).trim() || line.replace(/^\d+\.\s+/, ""))}</li>`);
+      blocks.push(`<li>${line.slice(2)}</li>`);
       continue;
     }
+    if (/^\d+\.\s+/.test(line)) {
+      if (!inList) {
+        blocks.push("<ul>");
+        inList = true;
+      }
+      blocks.push(`<li>${line.replace(/^\d+\.\s+/, "")}</li>`);
+      continue;
+    }
+
     if (inList) {
       blocks.push("</ul>");
       inList = false;
     }
-    blocks.push(`<p>${formatInline(line)}</p>`);
+    blocks.push(`<p>${line}</p>`);
   }
+
   if (inList) blocks.push("</ul>");
   return blocks.join("");
 }
@@ -149,15 +190,8 @@ function escapeHtml(text) {
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
+    .replace(/\"/g, "&quot;")
     .replace(/'/g, "&#39;");
-}
-
-function formatInline(text) {
-  return text
-    .replace(/`([^`]+)`/g, "<code>$1</code>")
-    .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
-    .replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
 }
 </script>
 
@@ -178,14 +212,39 @@ function formatInline(text) {
       </div>
     </section>
 
-    <section class="report-panel">
-      <header>
-        <h3>分析报告</h3>
-      </header>
-      <div class="report-body" v-html="reportHtml || '<p>暂无报告</p>'"></div>
+    <section class="result-grid">
+      <article class="panel">
+        <header class="panel-header">
+          <h3>数据预览</h3>
+          <button type="button" class="btn ghost small" @click="handleDownload">下载 CSV</button>
+        </header>
+        <div class="table-scroll" v-if="processPreview.columns.length">
+          <table>
+            <thead>
+              <tr>
+                <th v-for="col in processPreview.columns" :key="col">{{ col }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="(row, idx) in processPreview.rows" :key="idx">
+                <td v-for="col in processPreview.columns" :key="col">{{ row?.[col] ?? "-" }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p v-else class="empty">暂无预览数据</p>
+      </article>
+
+      <article class="panel">
+        <header class="panel-header">
+          <h3>处理报告</h3>
+          <span class="head-tag">Markdown</span>
+        </header>
+        <div class="report-body" v-html="reportHtml || '<p>暂无报告</p>'"></div>
+      </article>
     </section>
 
-    <p class="points-info">本次消耗 <b>{{ pointsCost }}</b> 积分 ・ 剩余 <b>{{ formatNumber(remainPoints) }}</b></p>
+    <p class="points-info">本次消耗 <b>{{ pointsCost }}</b> 积分 · 剩余 <b>{{ formatNumber(remainPoints) }}</b></p>
   </section>
 </template>
 
@@ -196,11 +255,16 @@ function formatInline(text) {
 }
 
 .command-panel,
-.report-panel {
+.panel {
   border: 1px solid #dfe7f3;
   border-radius: 14px;
-  padding: 14px;
   background: #fff;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.command-panel {
+  padding: 14px;
 }
 
 .upload-row {
@@ -233,11 +297,11 @@ textarea {
   border: 1px solid #c7d7ef;
   border-radius: 12px;
   padding: 10px 12px;
+  line-height: 1.5;
+  font-size: 15px;
   color: #334155;
   background: #f8fbff;
   resize: vertical;
-  line-height: 1.5;
-  font-size: 15px;
   min-height: 72px;
 }
 
@@ -252,28 +316,78 @@ textarea {
   gap: 4px;
 }
 
+.run-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
 .run-btn small {
   color: #dbe8fb;
 }
 
-.btn {
-  border: 1px solid #c7d7ef;
-  border-radius: 12px;
-  padding: 8px 16px;
-  color: #2f4e74;
-  background: #fff;
-  cursor: pointer;
+.result-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 10px;
 }
 
-.report-panel h3 {
-  margin: 0 0 10px;
+.panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border-bottom: 1px solid #e4ecf7;
+}
+
+.panel h3 {
+  margin: 0;
+  font-size: 18px;
   color: #1f2a37;
 }
 
+.head-tag {
+  color: #2f5a90;
+  font-size: 12px;
+}
+
+.table-scroll {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+table {
+  width: max-content;
+  min-width: 100%;
+  border-collapse: collapse;
+}
+
+th,
+td {
+  border-bottom: 1px solid #e8eef8;
+  text-align: left;
+  padding: 8px 10px;
+  color: #4b5d76;
+  font-size: 13px;
+  line-height: 1.35;
+  min-width: 120px;
+  white-space: nowrap;
+}
+
 .report-body {
+  padding: 12px;
   color: #41556f;
   font-size: 14px;
   line-height: 1.7;
+  min-height: 340px;
+  max-height: 560px;
+  overflow: auto;
+}
+
+.report-body :deep(h1) {
+  margin: 0 0 10px;
+  color: #1f2a37;
+  font-size: 20px;
 }
 
 .report-body :deep(h2) {
@@ -297,6 +411,27 @@ textarea {
   padding-left: 18px;
 }
 
+.empty {
+  margin: 0;
+  padding: 12px;
+  color: #64748b;
+  min-height: 340px;
+}
+
+.btn {
+  border: 1px solid #c7d7ef;
+  border-radius: 12px;
+  padding: 8px 16px;
+  color: #2f4e74;
+  background: #fff;
+  cursor: pointer;
+}
+
+.btn.small {
+  padding: 6px 10px;
+  font-size: 12px;
+}
+
 .points-info {
   margin: 0;
   color: #334155;
@@ -304,6 +439,10 @@ textarea {
 
 @media (max-width: 900px) {
   .command-row {
+    grid-template-columns: 1fr;
+  }
+
+  .result-grid {
     grid-template-columns: 1fr;
   }
 }
