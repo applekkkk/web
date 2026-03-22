@@ -1,6 +1,7 @@
 <script setup>
-import { computed, reactive, ref } from "vue";
+import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref } from "vue";
 import { ElMessage } from "element-plus";
+import { marked } from "marked";
 import { useAuthStore } from "../../stores/auth";
 import { downloadProcessedCsv, runProcessTask } from "../../services/analyticsApi";
 
@@ -8,6 +9,9 @@ const auth = useAuthStore();
 const running = ref(false);
 const selectedFile = ref(null);
 const fileInputRef = ref(null);
+const previewPanelRef = ref(null);
+const syncedPanelHeight = ref(0);
+let previewResizeObserver = null;
 
 const pointsCost = ref(10);
 const reportMarkdown = ref("");
@@ -19,10 +23,24 @@ const form = reactive({
 
 const userId = computed(() => Number(auth.user?.id || auth.user?.userId || 0));
 const remainPoints = computed(() => Number(auth.user?.points ?? 0));
-const reportHtml = computed(() => renderMarkdown(reportMarkdown.value));
+const reportHtml = computed(() => {
+  const raw = String(reportMarkdown.value || "").trim();
+  if (!raw) return "";
+  try {
+    return marked.parse(raw, { gfm: true, breaks: true });
+  } catch {
+    return raw.replace(/\r?\n/g, "<br/>");
+  }
+});
 
 function formatNumber(value) {
   return Number(value || 0).toLocaleString("zh-CN");
+}
+
+function syncReportPanelHeight() {
+  const el = previewPanelRef.value;
+  if (!el) return;
+  syncedPanelHeight.value = el.offsetHeight || 0;
 }
 
 function chooseFile() {
@@ -34,6 +52,14 @@ function onFileChange(event) {
 }
 
 function normalizePreview(preview) {
+  if (typeof preview === "string") {
+    try {
+      return normalizePreview(JSON.parse(preview));
+    } catch {
+      return { columns: [], rows: [] };
+    }
+  }
+
   if (Array.isArray(preview)) {
     const rows = preview;
     const columns = rows.length ? Object.keys(rows[0] || {}) : [];
@@ -41,8 +67,20 @@ function normalizePreview(preview) {
   }
 
   if (preview && typeof preview === "object") {
-    const columns = Array.isArray(preview.columns) ? preview.columns : [];
-    const rows = Array.isArray(preview.rows) ? preview.rows : [];
+    const rows = Array.isArray(preview.rows)
+      ? preview.rows
+      : Array.isArray(preview.data?.rows)
+      ? preview.data.rows
+      : [];
+    let columns = Array.isArray(preview.columns)
+      ? preview.columns
+      : Array.isArray(preview.data?.columns)
+      ? preview.data.columns
+      : [];
+
+    if (!columns.length && rows.length && rows[0] && typeof rows[0] === "object" && !Array.isArray(rows[0])) {
+      columns = Object.keys(rows[0]);
+    }
     if (columns.length || rows.length) return { columns, rows };
   }
 
@@ -76,11 +114,14 @@ async function handleRun() {
     });
 
     const payload = result?.data ?? result ?? {};
-    const report = payload.report ?? payload.markdown ?? "";
-    const preview = payload.preview ?? payload.table ?? payload.rows ?? [];
+    const report = payload.report ?? payload.markdown ?? payload.data?.report ?? "";
+    const preview =
+      payload.preview ?? payload.table ?? payload.rows ?? payload.data?.preview ?? payload.data?.rows ?? [];
 
     reportMarkdown.value = String(report || "");
     processPreview.value = normalizePreview(preview);
+    await nextTick();
+    syncReportPanelHeight();
 
     if (typeof auth.updateProfile === "function") {
       auth.updateProfile({ points: Math.max(0, remainPoints.value - pointsCost.value) });
@@ -116,83 +157,22 @@ async function handleDownload() {
   }
 }
 
-function renderMarkdown(markdownText) {
-  const escaped = escapeHtml(String(markdownText || ""));
-  const lines = escaped.split(/\r?\n/);
-  const blocks = [];
-  let inList = false;
-
-  for (const raw of lines) {
-    const line = raw.trim();
-    if (!line) {
-      if (inList) {
-        blocks.push("</ul>");
-        inList = false;
-      }
-      continue;
-    }
-
-    if (line.startsWith("### ")) {
-      if (inList) {
-        blocks.push("</ul>");
-        inList = false;
-      }
-      blocks.push(`<h3>${line.slice(4)}</h3>`);
-      continue;
-    }
-    if (line.startsWith("## ")) {
-      if (inList) {
-        blocks.push("</ul>");
-        inList = false;
-      }
-      blocks.push(`<h2>${line.slice(3)}</h2>`);
-      continue;
-    }
-    if (line.startsWith("# ")) {
-      if (inList) {
-        blocks.push("</ul>");
-        inList = false;
-      }
-      blocks.push(`<h1>${line.slice(2)}</h1>`);
-      continue;
-    }
-
-    if (line.startsWith("- ")) {
-      if (!inList) {
-        blocks.push("<ul>");
-        inList = true;
-      }
-      blocks.push(`<li>${line.slice(2)}</li>`);
-      continue;
-    }
-    if (/^\d+\.\s+/.test(line)) {
-      if (!inList) {
-        blocks.push("<ul>");
-        inList = true;
-      }
-      blocks.push(`<li>${line.replace(/^\d+\.\s+/, "")}</li>`);
-      continue;
-    }
-
-    if (inList) {
-      blocks.push("</ul>");
-      inList = false;
-    }
-    blocks.push(`<p>${line}</p>`);
+onMounted(async () => {
+  await nextTick();
+  syncReportPanelHeight();
+  if (typeof ResizeObserver !== "undefined" && previewPanelRef.value) {
+    previewResizeObserver = new ResizeObserver(() => syncReportPanelHeight());
+    previewResizeObserver.observe(previewPanelRef.value);
   }
+});
 
-  if (inList) blocks.push("</ul>");
-  return blocks.join("");
-}
+onBeforeUnmount(() => {
+  if (previewResizeObserver) {
+    previewResizeObserver.disconnect();
+    previewResizeObserver = null;
+  }
+});
 
-function escapeHtml(text) {
-  return text
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/\"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
 </script>
 
 <template>
@@ -210,10 +190,15 @@ function escapeHtml(text) {
           <small>消耗 {{ pointsCost }} 积分</small>
         </button>
       </div>
+      <div class="progress-wrap">
+        <div class="progress-track">
+          <div class="progress-bar" :class="{ active: running }"></div>
+        </div>
+      </div>
     </section>
 
     <section class="result-grid">
-      <article class="panel">
+      <article ref="previewPanelRef" class="panel preview-panel">
         <header class="panel-header">
           <h3>数据预览</h3>
           <button type="button" class="btn ghost small" @click="handleDownload">下载 CSV</button>
@@ -235,7 +220,7 @@ function escapeHtml(text) {
         <p v-else class="empty">暂无预览数据</p>
       </article>
 
-      <article class="panel">
+      <article class="panel report-panel" :style="syncedPanelHeight ? { height: `${syncedPanelHeight}px` } : null">
         <header class="panel-header">
           <h3>处理报告</h3>
           <span class="head-tag">Markdown</span>
@@ -261,6 +246,11 @@ function escapeHtml(text) {
   background: #fff;
   min-width: 0;
   overflow: hidden;
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
 }
 
 .command-panel {
@@ -291,6 +281,33 @@ function escapeHtml(text) {
   display: grid;
   gap: 10px;
   grid-template-columns: 1fr 170px;
+}
+
+.progress-wrap {
+  margin-top: 10px;
+}
+
+.progress-track {
+  width: 100%;
+  height: 6px;
+  border-radius: 999px;
+  border: 1px solid #c7d7ef;
+  background: #f4f8ff;
+  overflow: hidden;
+}
+
+.progress-bar {
+  height: 100%;
+  width: 20%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #95b5e4, #2f5a90);
+  opacity: 0.45;
+  transform: translateX(-120%);
+}
+
+.progress-bar.active {
+  opacity: 1;
+  animation: fake-progress 1.25s ease-in-out infinite;
 }
 
 textarea {
@@ -329,6 +346,7 @@ textarea {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 10px;
+  align-items: start;
 }
 
 .panel-header {
@@ -350,10 +368,12 @@ textarea {
   font-size: 12px;
 }
 
-.table-scroll {
+.preview-panel .table-scroll {
   width: 100%;
   max-width: 100%;
-  overflow-x: auto;
+  overflow: auto;
+  flex: 1;
+  min-height: 0;
 }
 
 table {
@@ -379,9 +399,24 @@ td {
   color: #41556f;
   font-size: 14px;
   line-height: 1.7;
-  min-height: 340px;
-  max-height: 560px;
+  min-height: 0;
   overflow: auto;
+  flex: 1;
+  word-break: break-word;
+}
+
+@keyframes fake-progress {
+  0% {
+    transform: translateX(-120%);
+    width: 18%;
+  }
+  50% {
+    width: 45%;
+  }
+  100% {
+    transform: translateX(260%);
+    width: 18%;
+  }
 }
 
 .report-body :deep(h1) {
@@ -415,7 +450,6 @@ td {
   margin: 0;
   padding: 12px;
   color: #64748b;
-  min-height: 340px;
 }
 
 .btn {
