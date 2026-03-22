@@ -229,7 +229,6 @@ onBeforeUnmount(() => {
       </article>
     </section>
 
-    <p class="points-info">本次消耗 <b>{{ pointsCost }}</b> 积分 · 剩余 <b>{{ formatNumber(remainPoints) }}</b></p>
   </section>
 </template>
 
