@@ -207,9 +207,9 @@ async function submit() {
 
       <label>
         数据分类
-        <select v-model="form.category">
-          <option v-for="option in categoryOptions" :key="option" :value="option">{{ option }}</option>
-        </select>
+        <el-select v-model="form.category" placeholder="请选择分类">
+          <el-option v-for="option in categoryOptions" :key="option" :label="option" :value="option" />
+        </el-select>
       </label>
 
       <label class="full">
@@ -282,7 +282,6 @@ label {
 }
 
 input,
-select,
 textarea {
   display: block;
   width: 100%;
@@ -292,6 +291,11 @@ textarea {
   padding: 8px 10px;
   font-size: 13px;
   background: #fff;
+}
+
+:deep(.el-select) {
+  width: 100%;
+  margin-top: 4px;
 }
 
 .inline-row {

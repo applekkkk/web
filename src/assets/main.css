@@ -24,3 +24,8 @@ a {
 #app {
   min-height: 100vh;
 }
+
+textarea,
+.el-textarea__inner {
+  resize: none !important;
+}

@@ -15,6 +15,7 @@ const userRoutes = [
   { path: "custom-bids", name: "user-custom-bids", component: () => import("../views/user/CustomBidsView.vue"), meta: { title: "任务市场" } },
   { path: "custom-bids/:id", name: "user-need-detail", component: () => import("../views/user/NeedDetailView.vue"), meta: { title: "任务详情" } },
   { path: "processing", name: "user-processing", component: () => import("../views/user/ProcessingView.vue"), meta: { title: "数据处理" } },
+  { path: "visualization", name: "user-visualization", component: () => import("../views/user/VisualizationView.vue"), meta: { title: "\u6570\u636e\u53ef\u89c6\u5316" } },
   { path: "analytics", name: "user-analytics", component: () => import("../views/user/AnalyticsView.vue"), meta: { title: "分析展示" } },
   { path: "feedback", name: "user-feedback", component: () => import("../views/user/FeedbackView.vue"), meta: { title: "管理员留言" } },
   { path: "profile", name: "user-profile", component: () => import("../views/user/ProfileView.vue"), meta: { title: "个人中心" } },

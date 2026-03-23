@@ -65,12 +65,11 @@ function statusLabelFromCode(code) {
 }
 
 function openDatasetDetail(item) {
-  const url = router.resolve({
+  router.push({
     name: "admin-review-detail",
     params: { id: item.datasetId },
     query: { reviewStatus: item.status }
-  }).href;
-  window.open(url, "_blank");
+  });
 }
 
 async function fetchPendingReviews() {

@@ -230,11 +230,13 @@ async function downloadFile() {
     link.click();
     link.remove();
     window.URL.revokeObjectURL(url);
-    const prevDownloads = dataset.value.downloads ?? 0;
-    dataset.value.downloads = (dataset.value.downloads ?? 0) + 1;
-    await syncStats(() => {
-      dataset.value.downloads = prevDownloads;
-    });
+    if (!isAdminView.value) {
+      const prevDownloads = dataset.value.downloads ?? 0;
+      dataset.value.downloads = (dataset.value.downloads ?? 0) + 1;
+      await syncStats(() => {
+        dataset.value.downloads = prevDownloads;
+      });
+    }
     ElMessage.success("下载成功");
   } catch (e) {
     ElMessage.error(e?.message || "下载失败");
@@ -322,7 +324,7 @@ function onAuthorAvatarError(event) {
           <span>{{ dataset.price }} 积分</span>
         </div>
 
-        <div class="icon-actions">
+        <div v-if="!isAdminView" class="icon-actions">
           <button type="button" class="icon-btn" @click="toggleLike">
             <img :src="dataset.liked ? '/img/liked.png' : '/img/like.png'" alt="点赞" />
             <span>{{ dataset.likes ?? 0 }}</span>
@@ -338,9 +340,12 @@ function onAuthorAvatarError(event) {
         </div>
       </div>
 
-      <el-select v-if="isAdminView" v-model="reviewStatus" class="status-select" placeholder="审核状态">
-        <el-option v-for="s in reviewStatusOptions" :key="s" :label="s" :value="s" />
-      </el-select>
+      <div v-if="isAdminView" class="admin-actions">
+        <el-select v-model="reviewStatus" class="status-select" placeholder="&#23457;&#26680;&#29366;&#24577;">
+          <el-option v-for="s in reviewStatusOptions" :key="s" :label="s" :value="s" />
+        </el-select>
+        <button type="button" class="admin-download" @click="handleDownload">&#19979;&#36733;&#25991;&#20214;</button>
+      </div>
       <button v-else-if="!dataset.purchased" class="download" @click="handleBuy">购买数据集</button>
       <button v-else class="purchased" type="button" disabled>已购买</button>
     </header>
@@ -485,6 +490,21 @@ h1 {
 
 .status-select {
   width: 140px;
+}
+
+.admin-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.admin-download {
+  border: 1px solid #c7d7ef;
+  border-radius: 999px;
+  padding: 8px 16px;
+  color: #2f4e74;
+  background: #fff;
+  cursor: pointer;
 }
 
 .block {

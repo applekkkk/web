@@ -33,7 +33,6 @@ function displayAuthor(item) {
 
       <div class="card-foot">
         <div class="publisher">
-          <span class="avatar">{{ displayAuthor(item).charAt(0) }}</span>
           <span>{{ displayAuthor(item) }}</span>
           <span class="dot">|</span>
           <span>{{ item.uploadDate }} 上传</span>

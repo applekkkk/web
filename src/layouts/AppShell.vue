@@ -12,26 +12,26 @@ const isAdmin = computed(() => route.path.startsWith("/admin"));
 const title = computed(() => (isAdmin.value ? "管理端" : "用户端"));
 
 const userMenus = [
-  { to: "/user/dashboard", label: "工作台" },
-  { to: "/user/market", label: "数据市场" },
-  { to: "/user/upload", label: "数据上传" },
-  { to: "/user/custom-bids", label: "任务市场" },
-  { to: "/user/custom-requests", label: "任务发布" },
-  { to: "/user/feedback", label: "管理员留言" },
-  { to: "/user/processing", label: "AI数据处理" },
-  { to: "/user/profile", label: "个人中心" }
+  { to: "/user/market", label: "数据市场", icon: "/img/数据市场 (2).png" },
+  { to: "/user/upload", label: "数据上传", icon: "/img/数据更新,数据上传.png" },
+  { to: "/user/custom-bids", label: "任务市场", icon: "/img/mti-任务市场 (2).png" },
+  { to: "/user/custom-requests", label: "任务发布", icon: "/img/通用-上报事件任务上传文档.png" },
+  { to: "/user/feedback", label: "管理员留言", icon: "/img/留言.png" },
+  { to: "/user/processing", label: "AI数据处理", icon: "/img/AI数据处理.png" },
+  { to: "/user/visualization", label: "数据可视化", icon: "/img/数据可视化.png" }
 ];
 
 const adminMenus = [
-  { to: "/admin/review", label: "数据审核" },
-  { to: "/admin/users", label: "用户管理" },
-  { to: "/admin/orders", label: "订单监控" },
-  { to: "/admin/messages", label: "留言查看" },
-  { to: "/admin/profile", label: "个人中心" }
+  { to: "/admin/review", label: "数据审核", icon: "/img/数据市场 (2).png" },
+  { to: "/admin/users", label: "用户管理", icon: "/img/avatar.png" },
+  { to: "/admin/orders", label: "订单监控", icon: "/img/buy.png" },
+  { to: "/admin/messages", label: "留言查看", icon: "/img/留言.png" }
 ];
 
 const menus = computed(() => (isAdmin.value ? adminMenus : userMenus));
 const avatarUrl = computed(() => auth.user?.avatar || "/img/avatar.png");
+const sidebarProfilePath = computed(() => (isAdmin.value ? "/admin/profile" : "/user/profile"));
+const sidebarUserName = computed(() => auth.user?.name || "未登录用户");
 const checkInText = computed(() => (auth.canDailyCheckIn ? "每日签到 +10" : "今日已签到"));
 const avatarMenuOpen = ref(false);
 
@@ -101,7 +101,7 @@ onBeforeUnmount(() => {
     <aside class="sidebar">
       <h1>数据交易平台</h1>
       <p>{{ title }}</p>
-      <nav>
+      <nav class="side-nav">
         <button
           v-for="item in menus"
           :key="item.to"
@@ -110,9 +110,24 @@ onBeforeUnmount(() => {
           :class="{ active: isActive(item.to) }"
           @click="navigate(item.to)"
         >
-          {{ item.label }}
+          <img v-if="item.icon" :src="item.icon" :alt="item.label" class="menu-icon" />
+          <span>{{ item.label }}</span>
         </button>
       </nav>
+      <div class="sidebar-divider" />
+      <button
+        type="button"
+        class="profile-entry"
+        :class="{ active: isActive(sidebarProfilePath) }"
+        @click="navigate(sidebarProfilePath)"
+      >
+        <span class="profile-avatar-wrap">
+          <img class="profile-avatar" :src="avatarUrl" alt="侧边栏头像" @error="onAvatarError" />
+        </span>
+        <span class="profile-text">
+          <strong>{{ sidebarUserName }}</strong>
+        </span>
+      </button>
     </aside>
 
     <section class="main">
@@ -161,9 +176,11 @@ onBeforeUnmount(() => {
   position: sticky;
   top: 0;
   align-self: flex-start;
+  display: flex;
+  flex-direction: column;
   width: 230px;
   height: 100vh;
-  overflow-y: auto;
+  overflow: hidden;
   color: #eef4ff;
   padding: 28px 18px;
   background: linear-gradient(180deg, #0f2745, #1a3d66);
@@ -180,15 +197,24 @@ onBeforeUnmount(() => {
   color: #bfccdf;
 }
 
+.side-nav {
+  flex: 1;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
 .menu-item {
-  display: block;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  justify-content: flex-start;
   width: 100%;
   margin-bottom: 12px;
   border: none;
   border-radius: 10px;
   padding: 13px 14px;
   color: inherit;
-  font-size: 17px;
+  font-size: 15px;
   font-weight: 600;
   line-height: 1.25;
   text-align: left;
@@ -196,9 +222,75 @@ onBeforeUnmount(() => {
   cursor: pointer;
 }
 
+.menu-icon {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+  flex: 0 0 18px;
+}
+
 .menu-item.active,
 .menu-item:hover {
   background: rgba(255, 255, 255, 0.18);
+}
+
+.profile-entry {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  border: none;
+  border-radius: 12px;
+  margin-top: 12px;
+  padding: 10px 12px;
+  color: #eef4ff;
+  background: transparent;
+  cursor: pointer;
+}
+
+.profile-entry.active,
+.profile-entry:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.sidebar-divider {
+  width: 100%;
+  border-top: 1px solid rgba(255, 255, 255, 0.25);
+  margin-top: 6px;
+}
+
+.profile-avatar-wrap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #fff;
+  flex: 0 0 36px;
+}
+
+.profile-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.profile-text {
+  display: grid;
+  text-align: left;
+  line-height: 1.2;
+}
+
+.profile-text strong {
+  font-size: 14px;
+}
+
+.profile-text small {
+  margin-top: 3px;
+  color: #d8e3f5;
+  font-size: 12px;
 }
 
 .main {

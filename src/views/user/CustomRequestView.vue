@@ -115,9 +115,9 @@ async function submit() {
 
         <label>
           数据类别
-          <select v-model="form.category">
-            <option v-for="item in categoryOptions" :key="item" :value="item">{{ item }}</option>
-          </select>
+          <el-select v-model="form.category">
+            <el-option v-for="item in categoryOptions" :key="item" :label="item" :value="item" />
+          </el-select>
         </label>
 
         <label class="full">
@@ -171,6 +171,11 @@ async function submit() {
   background: #fff;
 }
 
+:deep(.el-select) {
+  width: 100%;
+  margin-top: 4px;
+}
+
 .form-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -188,7 +193,6 @@ label {
 }
 
 input,
-select,
 textarea {
   width: 100%;
   margin-top: 4px;
