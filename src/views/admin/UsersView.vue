@@ -56,7 +56,9 @@ async function fetchUsers() {
   try {
     const res = await userApi.getAll();
     if (res?.code !== 200) throw new Error(res?.message || "加载失败");
-    users.value = (Array.isArray(res?.data) ? res.data : []).map(normalize);
+    users.value = (Array.isArray(res?.data) ? res.data : [])
+      .map(normalize)
+      .filter((item) => Number(item.role) !== 1 && String(item.role || "").toLowerCase() !== "admin");
   } catch (error) {
     users.value = [];
     ElMessage.error(error?.message || "加载失败");

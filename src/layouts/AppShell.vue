@@ -22,10 +22,10 @@ const userMenus = [
 ];
 
 const adminMenus = [
-  { to: "/admin/review", label: "数据审核", icon: "/img/数据市场 (2).png" },
-  { to: "/admin/users", label: "用户管理", icon: "/img/avatar.png" },
-  { to: "/admin/orders", label: "订单监控", icon: "/img/buy.png" },
-  { to: "/admin/messages", label: "留言查看", icon: "/img/留言.png" }
+  { to: "/admin/review", label: "数据审核"},
+  { to: "/admin/users", label: "用户管理"},
+  { to: "/admin/orders", label: "订单监控" },
+  { to: "/admin/messages", label: "留言查看" }
 ];
 
 const menus = computed(() => (isAdmin.value ? adminMenus : userMenus));

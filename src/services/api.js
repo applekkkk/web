@@ -2,7 +2,8 @@ import request from "./request";
 
 export const authApi = {
   login: (data) => request.post("/auth/login", data),
-  register: (data) => request.post("/auth/register", data)
+  register: (data) => request.post("/auth/register", data),
+  sendRegisterEmailCode: (email) => request.post("/auth/register/email/code", null, { params: { email } })
 };
 
 export const userApi = {
