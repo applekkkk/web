@@ -2,75 +2,108 @@ import axios from "axios";
 
 const BASE_URL = "http://127.0.0.1:8000";
 
-const visualizationRequest = axios.create({
+const api = axios.create({
   baseURL: BASE_URL,
-  timeout: 120000
+  timeout: 120000,
 });
 
 function normalizeError(error) {
   const detail =
     error?.response?.data?.detail ||
     error?.response?.data?.message ||
-    error?.response?.data?.msg ||
     error?.message ||
     "请求失败，请稍后重试";
   return new Error(typeof detail === "string" ? detail : JSON.stringify(detail));
 }
 
-async function parseJsonBlob(blob) {
-  const text = await blob.text();
-  if (!text) return {};
-  try {
-    return JSON.parse(text);
-  } catch {
-    return {};
-  }
-}
-
-function getImageFromPayload(payload) {
-  const data = payload?.data ?? payload ?? {};
-  if (typeof data?.imageUrl === "string" && data.imageUrl.trim()) {
-    return data.imageUrl.trim();
-  }
-  if (typeof data?.imageBase64 === "string" && data.imageBase64.trim()) {
-    const base64 = data.imageBase64.trim();
-    return base64.startsWith("data:image/") ? base64 : `data:image/png;base64,${base64}`;
-  }
-  return "";
+function buildFileForm(file, extra = {}) {
+  const fd = new FormData();
+  fd.append("file", file);
+  Object.entries(extra).forEach(([k, v]) => {
+    fd.append(k, typeof v === "object" ? JSON.stringify(v) : String(v));
+  });
+  return fd;
 }
 
 export async function renderNetworkVisualization({ file, userId, options = {} }) {
   try {
-    const formData = new FormData();
-    formData.append("file", file);
-    if (userId !== undefined && userId !== null) formData.append("user_id", String(userId));
-    formData.append("options", JSON.stringify(options));
-
-    const response = await visualizationRequest.post("/visualization/render", formData, {
-      headers: { "Content-Type": "multipart/form-data" },
-      responseType: "blob"
+    const fd = buildFileForm(file, {
+      ...(userId != null ? { user_id: userId } : {}),
+      options,
     });
 
-    const contentType = String(response?.headers?.["content-type"] || "").toLowerCase();
-    const blob = response.data;
+    const res = await api.post("/visualization/render", fd, {
+      headers: { "Content-Type": "multipart/form-data" },
+      responseType: "blob",
+    });
 
-    if (contentType.includes("application/json")) {
-      const payload = await parseJsonBlob(blob);
-      const imageUrl = getImageFromPayload(payload);
-      if (!imageUrl) throw new Error(payload?.message || "后端未返回可视化图片地址");
-      return { imageUrl, payload, isObjectUrl: false };
+    const ct = String(res.headers?.["content-type"] || "").toLowerCase();
+    const blob = res.data;
+
+    if (ct.startsWith("image/")) {
+      return { imageUrl: URL.createObjectURL(blob), isObjectUrl: true, payload: null };
     }
 
-    if (contentType.startsWith("image/")) {
-      return { imageUrl: URL.createObjectURL(blob), payload: null, isObjectUrl: true };
+    if (ct.includes("application/json")) {
+      const text = await blob.text();
+      const payload = JSON.parse(text);
+      const imageUrl = extractImageUrl(payload);
+      if (!imageUrl) throw new Error(payload?.message || "后端未返回图片");
+      return { imageUrl, isObjectUrl: false, payload };
     }
 
-    const fallbackPayload = await parseJsonBlob(blob);
-    const fallbackImage = getImageFromPayload(fallbackPayload);
-    if (fallbackImage) return { imageUrl: fallbackImage, payload: fallbackPayload, isObjectUrl: false };
+    const fallback = JSON.parse(await blob.text());
+    const imageUrl = extractImageUrl(fallback);
+    if (imageUrl) return { imageUrl, isObjectUrl: false, payload: fallback };
 
-    throw new Error("后端返回格式不支持，请确认接口返回图片或 imageUrl/imageBase64");
-  } catch (error) {
-    throw normalizeError(error);
+    throw new Error("后端返回格式不支持");
+  } catch (err) {
+    throw normalizeError(err);
   }
+}
+
+export async function getNetworkStats({ file }) {
+  try {
+    const fd = buildFileForm(file);
+    const res = await api.post("/visualization/stats", fd, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    return res.data;
+  } catch (err) {
+    throw normalizeError(err);
+  }
+}
+
+export async function getNetworkCentrality({ file, top = 15 }) {
+  try {
+    const fd = buildFileForm(file);
+    const res = await api.post(`/visualization/centrality?top=${top}`, fd, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    return res.data;
+  } catch (err) {
+    throw normalizeError(err);
+  }
+}
+
+export async function getNetworkCommunities({ file }) {
+  try {
+    const fd = buildFileForm(file);
+    const res = await api.post("/visualization/communities", fd, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    return res.data;
+  } catch (err) {
+    throw normalizeError(err);
+  }
+}
+
+function extractImageUrl(payload) {
+  const d = payload?.data ?? payload ?? {};
+  if (typeof d.imageUrl === "string" && d.imageUrl.trim()) return d.imageUrl.trim();
+  if (typeof d.imageBase64 === "string" && d.imageBase64.trim()) {
+    const b = d.imageBase64.trim();
+    return b.startsWith("data:image/") ? b : `data:image/png;base64,${b}`;
+  }
+  return "";
 }
