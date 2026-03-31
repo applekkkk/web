@@ -181,7 +181,7 @@ onBeforeUnmount(cleanupImageUrl);
           </label>
         </div>
 
-        <p class="file-tip">支持 .net / .gml / .graphml / .txt</p>
+        <p class="file-tip">支持 .net </p>
 
         <div class="actions">
           <button type="button" class="btn primary" :disabled="loading" @click="handleRender">

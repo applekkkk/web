@@ -1,18 +1,24 @@
 <script setup>
-import { computed, reactive, ref } from "vue";
+import { computed, reactive, ref, watch } from "vue";
 import { ElMessage } from "element-plus";
 import { useAuthStore } from "../../stores/auth";
 import { customRequestApi } from "../../services/api";
 import request from "../../services/request";
 
 const auth = useAuthStore();
-const categoryOptions = ["图数据", "文本", "时空", "其他"];
+const GRAPH_CATEGORY = "网络数据（图数据）";
+const NORMAL_CATEGORY = "普通数据";
+const categoryOptions = [GRAPH_CATEGORY, NORMAL_CATEGORY];
 const maxBudget = computed(() => Number(auth.user?.points ?? 0));
+const fileAccept = computed(() =>
+  form.category === GRAPH_CATEGORY ? ".net,application/octet-stream,text/plain" : ".csv,text/csv"
+);
+const expectedFileSuffix = computed(() => (form.category === GRAPH_CATEGORY ? ".net" : ".csv"));
 
 const form = reactive({
   title: "",
   description: "",
-  category: "图数据",
+  category: GRAPH_CATEGORY,
   amount: "",
   contact: "",
   budget: null
@@ -26,10 +32,37 @@ function chooseFile() {
   fileInputRef.value?.click();
 }
 
+function isFileMatchCategory(fileName) {
+  const lower = String(fileName || "").toLowerCase();
+  if (form.category === GRAPH_CATEGORY) return lower.endsWith(".net");
+  return lower.endsWith(".csv");
+}
+
 function onFileChange(event) {
   const file = event.target.files?.[0];
-  selectedFile.value = file || null;
+  if (!file) {
+    selectedFile.value = null;
+    return;
+  }
+  if (!isFileMatchCategory(file.name)) {
+    selectedFile.value = null;
+    if (event.target) event.target.value = "";
+    ElMessage.warning(`当前分类仅支持上传 ${expectedFileSuffix.value} 文件`);
+    return;
+  }
+  selectedFile.value = file;
 }
+
+watch(
+  () => form.category,
+  () => {
+    if (selectedFile.value && !isFileMatchCategory(selectedFile.value.name)) {
+      selectedFile.value = null;
+      if (fileInputRef.value) fileInputRef.value.value = "";
+      ElMessage.info(`分类已切换，请重新选择 ${expectedFileSuffix.value} 文件`);
+    }
+  }
+);
 
 async function uploadAttachment(file) {
   const fd = new FormData();
@@ -88,7 +121,7 @@ async function submit() {
 
     form.title = "";
     form.description = "";
-    form.category = "图数据";
+    form.category = GRAPH_CATEGORY;
     form.amount = "";
     form.contact = "";
     form.budget = null;
@@ -142,8 +175,8 @@ async function submit() {
         </label>
 
         <div class="full upload-box">
-          <label class="sample-tip">示例数据文件（csv 文件，可选）</label>
-          <input ref="fileInputRef" type="file" accept=".csv,text/csv" class="hidden-file" @change="onFileChange" />
+          <label class="sample-tip">示例数据文件（{{ expectedFileSuffix }}，可选）</label>
+          <input ref="fileInputRef" type="file" :accept="fileAccept" class="hidden-file" @change="onFileChange" />
           <button type="button" class="btn ghost" @click="chooseFile">选择附件</button>
           <span class="file-name">{{ selectedFile ? selectedFile.name : "未选择附件" }}</span>
         </div>

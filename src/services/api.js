@@ -10,6 +10,7 @@ export const userApi = {
   getById: (id) => request.get(`/users/${id}`),
   getAll: () => request.get("/users/all"),
   updateProfile: (id, data) => request.put(`/users/${id}`, data),
+  updatePoints: (id, points) => request.put(`/users/${id}/points`, null, { params: { points } }),
   changePassword: (id, data) => request.put(`/users/${id}/password`, data),
   sendEmailCode: (id, email) => request.post(`/users/${id}/email/code`, null, { params: { email } }),
   verifyEmail: (id, email, code) => request.post(`/users/${id}/email/verify`, null, { params: { email, code } }),

@@ -1,12 +1,14 @@
 ﻿<script setup>
-import { computed, reactive, ref } from "vue";
+import { computed, reactive, ref, watch } from "vue";
 import { useAuthStore } from "../../stores/auth";
 import PanelCard from "../../components/PanelCard.vue";
 import { ElMessage } from "element-plus";
 import request from "../../services/request";
 import router from "@/router";
 
-const categoryOptions = ["复杂网络", "文本", "时空"];
+const GRAPH_CATEGORY = "网络数据（图数据）";
+const NORMAL_CATEGORY = "普通数据";
+const categoryOptions = [GRAPH_CATEGORY, NORMAL_CATEGORY];
 const sizeUnitOptions = ["MB", "GB"];
 const auth = useAuthStore();
 
@@ -26,6 +28,10 @@ const uploading = ref(false);
 const today = new Date().toISOString().slice(0, 10);
 const currentUserName = computed(() => auth.user?.name || "当前用户");
 const currentUserId = computed(() => auth.user?.id || null);
+const fileAccept = computed(() =>
+  form.category === GRAPH_CATEGORY ? ".net,application/octet-stream,text/plain" : ".csv,text/csv"
+);
+const expectedFileSuffix = computed(() => (form.category === GRAPH_CATEGORY ? ".net" : ".csv"));
 
 function bytesToSizeLabel(bytes) {
   const b = Number(bytes ?? 0);
@@ -107,16 +113,22 @@ function chooseFile() {
   fileInputRef.value?.click();
 }
 
+function isFileMatchCategory(fileName) {
+  const lower = String(fileName || "").toLowerCase();
+  if (form.category === GRAPH_CATEGORY) return lower.endsWith(".net");
+  return lower.endsWith(".csv");
+}
+
 function onFileChange(event) {
   const file = event.target.files?.[0];
   if (!file) {
     selectedFile.value = null;
     return;
   }
-  if (!file.name.toLowerCase().endsWith(".csv")) {
+  if (!isFileMatchCategory(file.name)) {
     selectedFile.value = null;
     if (event.target) event.target.value = "";
-    message.value = "仅支持上传 .csv 格式文件。";
+    message.value = `当前分类仅支持上传 ${expectedFileSuffix.value} 文件。`;
     return;
   }
 
@@ -124,9 +136,20 @@ function onFileChange(event) {
   message.value = `已选择文件：${file.name}`;
 }
 
+watch(
+  () => form.category,
+  () => {
+    if (selectedFile.value && !isFileMatchCategory(selectedFile.value.name)) {
+      selectedFile.value = null;
+      if (fileInputRef.value) fileInputRef.value.value = "";
+      message.value = `分类已切换，请重新选择 ${expectedFileSuffix.value} 文件。`;
+    }
+  }
+);
+
 async function submit() {
   if (!form.name || !form.info || !selectedFile.value) {
-    message.value = "请至少填写名称、简介，并选择 .csv 文件后提交。";
+    message.value = `请至少填写名称、简介，并选择 ${expectedFileSuffix.value} 文件后提交。`;
     return;
   }
 
@@ -244,12 +267,12 @@ async function submit() {
         <input
           ref="fileInputRef"
           type="file"
-          accept=".csv,text/csv"
+          :accept="fileAccept"
           class="hidden-file"
           @change="onFileChange"
         />
         <button type="button" class="btn ghost" @click="chooseFile">选择文件</button>
-        <span class="file-name">{{ selectedFile ? selectedFile.name : "未选择 .csv 文件" }}</span>
+        <span class="file-name">{{ selectedFile ? selectedFile.name : `未选择 ${expectedFileSuffix} 文件` }}</span>
       </div>
 
       <div class="full">

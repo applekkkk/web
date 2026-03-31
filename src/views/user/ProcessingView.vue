@@ -3,15 +3,18 @@ import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref } from "v
 import { ElMessage } from "element-plus";
 import { marked } from "marked";
 import { useAuthStore } from "../../stores/auth";
+import { userApi } from "../../services/api";
 import { downloadProcessedCsv, runProcessTask } from "../../services/analyticsApi";
 
 const auth = useAuthStore();
 const running = ref(false);
+const progressPercent = ref(0);
 const selectedFile = ref(null);
 const fileInputRef = ref(null);
 const previewPanelRef = ref(null);
 const syncedPanelHeight = ref(0);
 let previewResizeObserver = null;
+let progressTimer = null;
 
 const pointsCost = ref(10);
 const reportMarkdown = ref("");
@@ -45,6 +48,29 @@ function syncReportPanelHeight() {
 
 function chooseFile() {
   fileInputRef.value?.click();
+}
+
+function startProgress() {
+  if (progressTimer) {
+    clearInterval(progressTimer);
+    progressTimer = null;
+  }
+  progressPercent.value = 3;
+  progressTimer = setInterval(() => {
+    if (progressPercent.value >= 90) return;
+    progressPercent.value = Math.min(90, progressPercent.value + Math.floor(Math.random() * 3 + 1));
+  }, 900);
+}
+
+function finishProgress() {
+  if (progressTimer) {
+    clearInterval(progressTimer);
+    progressTimer = null;
+  }
+  progressPercent.value = 100;
+  setTimeout(() => {
+    if (!running.value) progressPercent.value = 0;
+  }, 1000);
 }
 
 function onFileChange(event) {
@@ -88,6 +114,7 @@ function normalizePreview(preview) {
 }
 
 async function handleRun() {
+  await auth.refreshUser();
   if (!selectedFile.value) {
     ElMessage.warning("请先选择 CSV 文件");
     return;
@@ -106,6 +133,7 @@ async function handleRun() {
   }
 
   running.value = true;
+  startProgress();
   try {
     const result = await runProcessTask({
       file: selectedFile.value,
@@ -123,15 +151,19 @@ async function handleRun() {
     await nextTick();
     syncReportPanelHeight();
 
-    if (typeof auth.updateProfile === "function") {
-      auth.updateProfile({ points: Math.max(0, remainPoints.value - pointsCost.value) });
+    const nextPoints = Math.max(0, Number(auth.user?.points ?? 0) - pointsCost.value);
+    const pointsRes = await userApi.updatePoints(userId.value, nextPoints);
+    if (pointsRes?.code !== 200) {
+      throw new Error(pointsRes?.message || "积分扣减失败");
     }
+    auth.updateProfile({ points: nextPoints });
 
     ElMessage.success("处理完成");
   } catch (error) {
     ElMessage.error(error?.message || "处理失败");
   } finally {
     running.value = false;
+    finishProgress();
   }
 }
 
@@ -167,6 +199,10 @@ onMounted(async () => {
 });
 
 onBeforeUnmount(() => {
+  if (progressTimer) {
+    clearInterval(progressTimer);
+    progressTimer = null;
+  }
   if (previewResizeObserver) {
     previewResizeObserver.disconnect();
     previewResizeObserver = null;
@@ -191,9 +227,7 @@ onBeforeUnmount(() => {
         </button>
       </div>
       <div class="progress-wrap">
-        <div class="progress-track">
-          <div class="progress-bar" :class="{ active: running }"></div>
-        </div>
+        <el-progress :percentage="progressPercent" :stroke-width="8" :show-text="false" />
       </div>
     </section>
 
@@ -284,29 +318,6 @@ onBeforeUnmount(() => {
 
 .progress-wrap {
   margin-top: 10px;
-}
-
-.progress-track {
-  width: 100%;
-  height: 6px;
-  border-radius: 999px;
-  border: 1px solid #c7d7ef;
-  background: #f4f8ff;
-  overflow: hidden;
-}
-
-.progress-bar {
-  height: 100%;
-  width: 20%;
-  border-radius: 999px;
-  background: linear-gradient(90deg, #95b5e4, #2f5a90);
-  opacity: 0.45;
-  transform: translateX(-120%);
-}
-
-.progress-bar.active {
-  opacity: 1;
-  animation: fake-progress 1.25s ease-in-out infinite;
 }
 
 textarea {
@@ -402,20 +413,6 @@ td {
   overflow: auto;
   flex: 1;
   word-break: break-word;
-}
-
-@keyframes fake-progress {
-  0% {
-    transform: translateX(-120%);
-    width: 18%;
-  }
-  50% {
-    width: 45%;
-  }
-  100% {
-    transform: translateX(260%);
-    width: 18%;
-  }
 }
 
 .report-body :deep(h1) {
