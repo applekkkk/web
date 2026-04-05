@@ -114,16 +114,26 @@ function normalizeNeed(item) {
 
 function normalizeOrder(item) {
   const amount = Number(item.amount ?? 0);
-  const type = amount >= 0 ? "承接任务" : "购买数据";
-  const title = item.productName || (amount >= 0 ? "承接任务" : "购买数据");
+  const title = String(item.productName || "");
+  const isTaskOrder =
+    amount >= 0 ||
+    title.includes("任务结算支出") ||
+    title.includes("任务结算收入") ||
+    title.includes("承接任务记录") ||
+    (title.includes("任务") && !title.includes("购买数据"));
+  const type = isTaskOrder ? "数据定制" : "数据购买";
+  const productId = Number(item.productId ?? 0);
+  const targetPath =
+    productId > 0 ? (isTaskOrder ? `/user/custom-bids/${productId}` : `/user/market/${productId}`) : "";
   return {
     id: item.id,
     orderNo: item.orderNo,
-    productId: item.productId,
+    productId,
     amount,
     type,
-    title,
-    createdAt: formatTime(item.createdAt || "")
+    title: title || (isTaskOrder ? "数据定制订单" : "数据购买订单"),
+    createdAt: formatTime(item.createdAt || ""),
+    targetPath
   };
 }
 
@@ -142,6 +152,14 @@ function dedupeProducts(list) {
 
 function amountText(amount) {
   return amount > 0 ? `+${amount}` : `${amount}`;
+}
+
+function openOrderDetail(order) {
+  if (!order?.targetPath) {
+    ElMessage.info("该订单暂无可跳转的详情");
+    return;
+  }
+  router.push(order.targetPath);
 }
 
 function onAvatarError(event) {
@@ -424,7 +442,12 @@ function handleDownload(item) {
             </tr>
           </thead>
           <tbody>
-            <tr v-for="item in displayOrders" :key="item.id">
+            <tr
+              v-for="item in displayOrders"
+              :key="item.id"
+              :class="{ clickable: Boolean(item.targetPath) }"
+              @click="openOrderDetail(item)"
+            >
               <td>{{ item.orderNo || item.id }}</td>
               <td>{{ item.type }}</td>
               <td>{{ item.title }}</td>
@@ -559,6 +582,14 @@ function handleDownload(item) {
   padding: 10px 8px;
   text-align: left;
   font-size: 13px;
+}
+
+.orders-card tbody tr.clickable {
+  cursor: pointer;
+}
+
+.orders-card tbody tr.clickable:hover td {
+  background: #f7fbff;
 }
 
 .amount.plus {

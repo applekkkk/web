@@ -12,13 +12,9 @@ const isAdmin = computed(() => route.path.startsWith("/admin"));
 const title = computed(() => (isAdmin.value ? "管理端" : "用户端"));
 
 const userMenus = [
-  { to: "/user/market", label: "数据市场", icon: "/img/数据市场 (2).png" },
-  { to: "/user/upload", label: "数据上传", icon: "/img/数据更新,数据上传.png" },
-  { to: "/user/custom-bids", label: "任务市场", icon: "/img/mti-任务市场 (2).png" },
-  { to: "/user/custom-requests", label: "任务发布", icon: "/img/通用-上报事件任务上传文档.png" },
-  { to: "/user/feedback", label: "管理员留言", icon: "/img/留言.png" },
-  { to: "/user/processing", label: "AI数据处理", icon: "/img/AI数据处理.png" },
-  { to: "/user/visualization", label: "数据可视化", icon: "/img/数据可视化.png" }
+  { to: "/user/data-market", label: "数据市场", icon: "/img/数据市场 (2).png", match: ["/user/data-market", "/user/market", "/user/upload"] },
+  { to: "/user/data-customization", label: "数据定制", icon: "/img/mti-任务市场 (2).png", match: ["/user/data-customization", "/user/custom-bids", "/user/custom-requests"] },
+  { to: "/user/data-analysis", label: "数据分析", icon: "/img/AI数据处理.png", match: ["/user/data-analysis", "/user/processing", "/user/visualization"] }
 ];
 
 const adminMenus = [
@@ -36,7 +32,12 @@ const checkInText = computed(() => (auth.canDailyCheckIn ? "每日签到 +10" : 
 const avatarMenuOpen = ref(false);
 
 function isActive(path) {
-  return route.path === path;
+  return route.path === path || route.path.startsWith(`${path}/`);
+}
+
+function isMenuActive(item) {
+  const matches = Array.isArray(item?.match) && item.match.length ? item.match : [item.to];
+  return matches.some((p) => route.path === p || route.path.startsWith(`${p}/`));
 }
 
 function navigate(path) {
@@ -109,7 +110,7 @@ onBeforeUnmount(() => {
               :key="item.to"
               type="button"
               class="menu-item"
-              :class="{ active: isActive(item.to) }"
+              :class="{ active: isMenuActive(item) }"
               @click="navigate(item.to)"
             >
               <img v-if="item.icon" :src="item.icon" :alt="item.label" class="menu-icon" />

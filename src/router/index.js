@@ -6,18 +6,21 @@ const AppShell = () => import("../layouts/AppShell.vue");
 
 const userRoutes = [
   { path: "dashboard", name: "user-dashboard", component: () => import("../views/user/UserDashboardView.vue"), meta: { title: "工作台" } },
-  { path: "market", name: "user-market", component: () => import("../views/user/MarketView.vue"), meta: { title: "数据市场" } },
+  { path: "data-market", name: "user-data-market", component: () => import("../views/user/DataMarketHubView.vue"), meta: { title: "数据市场" } },
+  { path: "market", redirect: { name: "user-data-market", query: { tab: "trade" } } },
+  { path: "upload", redirect: { name: "user-data-market", query: { tab: "upload" } } },
   { path: "market/:id", name: "user-market-detail", component: () => import("../views/user/DatasetDetailView.vue"), meta: { title: "数据详情" } },
-  { path: "upload", name: "user-upload", component: () => import("../views/user/UploadManageView.vue"), meta: { title: "数据上传" } },
   { path: "orders", name: "user-orders", component: () => import("../views/user/OrdersView.vue"), meta: { title: "交易订单" } },
   { path: "warehouse", name: "user-warehouse", component: () => import("../views/user/WarehouseView.vue"), meta: { title: "个人仓库" } },
-  { path: "custom-requests", name: "user-custom-requests", component: () => import("../views/user/CustomRequestView.vue"), meta: { title: "任务发布" } },
-  { path: "custom-bids", name: "user-custom-bids", component: () => import("../views/user/CustomBidsView.vue"), meta: { title: "任务市场" } },
+  { path: "data-customization", name: "user-data-customization", component: () => import("../views/user/DataCustomizationHubView.vue"), meta: { title: "数据定制" } },
+  { path: "custom-bids", redirect: { name: "user-data-customization", query: { tab: "accept" } } },
+  { path: "custom-requests", redirect: { name: "user-data-customization", query: { tab: "publish" } } },
   { path: "custom-bids/:id", name: "user-need-detail", component: () => import("../views/user/NeedDetailView.vue"), meta: { title: "任务详情" } },
-  { path: "processing", name: "user-processing", component: () => import("../views/user/ProcessingView.vue"), meta: { title: "数据处理" } },
-  { path: "visualization", name: "user-visualization", component: () => import("../views/user/VisualizationView.vue"), meta: { title: "\u6570\u636e\u53ef\u89c6\u5316" } },
+  { path: "data-analysis", name: "user-data-analysis", component: () => import("../views/user/DataAnalysisHubView.vue"), meta: { title: "数据分析" } },
+  { path: "processing", redirect: { name: "user-data-analysis", query: { tab: "ai" } } },
+  { path: "visualization", redirect: { name: "user-data-analysis", query: { tab: "viz" } } },
   { path: "analytics", name: "user-analytics", component: () => import("../views/user/AnalyticsView.vue"), meta: { title: "分析展示" } },
-  { path: "feedback", name: "user-feedback", component: () => import("../views/user/FeedbackView.vue"), meta: { title: "管理员留言" } },
+  { path: "feedback", redirect: { name: "user-data-analysis" } },
   { path: "profile", name: "user-profile", component: () => import("../views/user/ProfileView.vue"), meta: { title: "个人中心" } },
   { path: "profile/edit", name: "user-profile-edit", component: () => import("../views/common/EditProfileView.vue"), meta: { title: "编辑个人资料" } }
 ];
@@ -41,7 +44,7 @@ const router = createRouter({
       path: "/user",
       component: AppShell,
       meta: { requiresAuth: true, role: "user", baseTitle: "在线数据交易平台 - 用户端" },
-      children: [{ path: "", redirect: { name: "user-market" } }, ...userRoutes]
+      children: [{ path: "", redirect: { name: "user-data-market" } }, ...userRoutes]
     },
     {
       path: "/admin",
