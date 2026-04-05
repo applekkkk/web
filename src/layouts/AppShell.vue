@@ -101,19 +101,23 @@ onBeforeUnmount(() => {
     <aside class="sidebar">
       <h1>数据交易平台</h1>
       <p>{{ title }}</p>
-      <nav class="side-nav">
-        <button
-          v-for="item in menus"
-          :key="item.to"
-          type="button"
-          class="menu-item"
-          :class="{ active: isActive(item.to) }"
-          @click="navigate(item.to)"
-        >
-          <img v-if="item.icon" :src="item.icon" :alt="item.label" class="menu-icon" />
-          <span>{{ item.label }}</span>
-        </button>
-      </nav>
+      <div class="side-nav-wrap">
+        <el-scrollbar class="side-nav-scrollbar">
+          <nav class="side-nav">
+            <button
+              v-for="item in menus"
+              :key="item.to"
+              type="button"
+              class="menu-item"
+              :class="{ active: isActive(item.to) }"
+              @click="navigate(item.to)"
+            >
+              <img v-if="item.icon" :src="item.icon" :alt="item.label" class="menu-icon" />
+              <span>{{ item.label }}</span>
+            </button>
+          </nav>
+        </el-scrollbar>
+      </div>
       <div class="sidebar-divider" />
       <button
         type="button"
@@ -197,10 +201,17 @@ onBeforeUnmount(() => {
   color: #bfccdf;
 }
 
-.side-nav {
+.side-nav-wrap {
   flex: 1;
-  overflow-y: auto;
-  padding-right: 2px;
+  min-height: 0;
+}
+
+.side-nav-scrollbar {
+  height: 100%;
+}
+
+.side-nav {
+  padding-right: 6px;
 }
 
 .menu-item {
@@ -232,6 +243,16 @@ onBeforeUnmount(() => {
 .menu-item.active,
 .menu-item:hover {
   background: rgba(255, 255, 255, 0.18);
+}
+
+:deep(.side-nav-scrollbar .el-scrollbar__bar.is-vertical) {
+  width: 8px;
+  right: 2px;
+}
+
+:deep(.side-nav-scrollbar .el-scrollbar__thumb) {
+  background: rgba(255, 255, 255, 0.36);
+  border-radius: 999px;
 }
 
 .profile-entry {
