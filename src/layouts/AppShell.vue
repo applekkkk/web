@@ -14,7 +14,8 @@ const title = computed(() => (isAdmin.value ? "管理端" : "用户端"));
 const userMenus = [
   { to: "/user/data-market", label: "数据市场", icon: "/img/数据市场 (2).png", match: ["/user/data-market", "/user/market", "/user/upload"] },
   { to: "/user/data-customization", label: "数据定制", icon: "/img/mti-任务市场 (2).png", match: ["/user/data-customization", "/user/custom-bids", "/user/custom-requests"] },
-  { to: "/user/data-analysis", label: "数据分析", icon: "/img/AI数据处理.png", match: ["/user/data-analysis", "/user/processing", "/user/visualization"] }
+  { to: "/user/data-analysis", label: "数据分析", icon: "/img/AI数据处理.png", match: ["/user/data-analysis", "/user/processing", "/user/visualization"] },
+  { to: "/user/appeals", label: "申诉记录", icon: "/img/用户申诉.png" }
 ];
 
 const adminMenus = [

@@ -19,6 +19,7 @@ const userRoutes = [
   { path: "data-analysis", name: "user-data-analysis", component: () => import("../views/user/DataAnalysisHubView.vue"), meta: { title: "数据分析" } },
   { path: "processing", redirect: { name: "user-data-analysis", query: { tab: "ai" } } },
   { path: "visualization", redirect: { name: "user-data-analysis", query: { tab: "viz" } } },
+  { path: "appeals", name: "user-appeals", component: () => import("../views/user/AppealsView.vue"), meta: { title: "我的申诉" } },
   { path: "analytics", name: "user-analytics", component: () => import("../views/user/AnalyticsView.vue"), meta: { title: "分析展示" } },
   { path: "feedback", redirect: { name: "user-data-analysis" } },
   { path: "profile", name: "user-profile", component: () => import("../views/user/ProfileView.vue"), meta: { title: "个人中心" } },

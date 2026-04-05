@@ -1,9 +1,9 @@
 <script setup>
-import { computed, onMounted, ref, watch } from "vue";
+import { computed, onMounted, reactive, ref, watch } from "vue";
 import { useRoute } from "vue-router";
 import { ElMessage } from "element-plus";
 import request from "../../services/request";
-import { customRequestApi } from "../../services/api";
+import { customRequestApi, taskAppealApi } from "../../services/api";
 import { useAuthStore } from "../../stores/auth";
 
 const route = useRoute();
@@ -16,6 +16,14 @@ const completing = ref(false);
 const rejecting = ref(false);
 const deliveryFile = ref(null);
 const deliveryInputRef = ref(null);
+const appealing = ref(false);
+const appealDialogVisible = ref(false);
+const appealForm = reactive({
+  claimText: "",
+  evidenceText: ""
+});
+const evidenceImageFile = ref(null);
+const evidenceImageInputRef = ref(null);
 
 function normalizeRequest(item) {
   return {
@@ -47,8 +55,10 @@ const hasAcceptor = computed(() => Number(task.value?.acceptorId ?? 0) > 0);
 const canAccept = computed(() => statusCode.value === 0 && !isPublisher.value);
 const canSubmitDelivery = computed(() => statusCode.value === 1 && isAcceptor.value);
 const canConfirmComplete = computed(() => statusCode.value === 2 && isPublisher.value);
+const canAppeal = computed(() => (statusCode.value === 1 || statusCode.value === 2) && (isPublisher.value || isAcceptor.value));
 
 const canSeeAcceptorEmail = computed(() => isPublisher.value && statusCode.value >= 1);
+const appealDialogTitle = computed(() => `${task.value?.title || "任务"} · 任务申诉`);
 
 const statusText = computed(() => {
   if (statusCode.value === 1) return "进行中";
@@ -139,6 +149,15 @@ function onDeliveryFileChange(event) {
   deliveryFile.value = file || null;
 }
 
+function chooseEvidenceImage() {
+  evidenceImageInputRef.value?.click();
+}
+
+function onEvidenceImageChange(event) {
+  const file = event.target.files?.[0];
+  evidenceImageFile.value = file || null;
+}
+
 async function uploadCsv(file) {
   const fd = new FormData();
   fd.append("file", file);
@@ -146,6 +165,16 @@ async function uploadCsv(file) {
     headers: { "Content-Type": "multipart/form-data" }
   });
   if (res?.code !== 200) throw new Error(res?.message || "文件上传失败");
+  return res?.data?.savedName || "";
+}
+
+async function uploadEvidenceImage(file) {
+  const fd = new FormData();
+  fd.append("file", file);
+  const res = await request.post("/files/upload-image", fd, {
+    headers: { "Content-Type": "multipart/form-data" }
+  });
+  if (res?.code !== 200) throw new Error(res?.message || "证据图片上传失败");
   return res?.data?.savedName || "";
 }
 
@@ -211,6 +240,45 @@ async function handleReject() {
   }
 }
 
+async function handleAppeal() {
+  if (!task.value || !canAppeal.value) return;
+  if (!appealForm.claimText.trim()) {
+    ElMessage.warning("请填写诉求内容");
+    return;
+  }
+  appealing.value = true;
+  try {
+    let evidenceImage = "";
+    if (evidenceImageFile.value) {
+      evidenceImage = await uploadEvidenceImage(evidenceImageFile.value);
+    }
+    const res = await taskAppealApi.create({
+      requestId: task.value.id,
+      appellantId: auth.user?.id ?? null,
+      claimText: appealForm.claimText.trim(),
+      evidenceText: appealForm.evidenceText.trim(),
+      evidenceImage
+    });
+    if (res?.code !== 200) throw new Error(res?.message || "申诉提交失败");
+
+    appealForm.claimText = "";
+    appealForm.evidenceText = "";
+    evidenceImageFile.value = null;
+    if (evidenceImageInputRef.value) evidenceImageInputRef.value.value = "";
+    appealDialogVisible.value = false;
+    ElMessage.success("申诉已提交");
+  } catch (error) {
+    ElMessage.error(error?.message || "申诉提交失败");
+  } finally {
+    appealing.value = false;
+  }
+}
+
+function openAppealDialog() {
+  if (!canAppeal.value) return;
+  appealDialogVisible.value = true;
+}
+
 async function downloadFile(name) {
   if (!name) return;
   try {
@@ -249,14 +317,18 @@ watch(() => route.params.id, fetchTask);
       </div>
       <div class="head-actions">
         <button v-if="canAccept" class="action-btn" type="button" @click="handleAccept">承接任务</button>
-        <template v-else-if="canConfirmComplete">
-          <button class="action-btn reject" type="button" :disabled="rejecting" @click="handleReject">
-            {{ rejecting ? "打回中..." : "打回任务" }}
-          </button>
+        <div v-else-if="canConfirmComplete" class="confirm-actions">
           <button class="action-btn done" type="button" :disabled="completing" @click="handleComplete">
             {{ completing ? "确认中..." : "确认完成并结算" }}
           </button>
-        </template>
+          <div class="minor-actions" :class="{ single: !canAppeal }">
+            <button class="action-btn reject" type="button" :disabled="rejecting" @click="handleReject">
+              {{ rejecting ? "打回中..." : "打回任务" }}
+            </button>
+            <button v-if="canAppeal" class="action-btn appeal" type="button" @click="openAppealDialog">申诉</button>
+          </div>
+        </div>
+        <button v-else-if="canAppeal" class="action-btn appeal" type="button" @click="openAppealDialog">申诉</button>
       </div>
     </header>
 
@@ -327,6 +399,43 @@ watch(() => route.params.id, fetchTask);
         </div>
       </article>
     </section>
+
+    <el-dialog v-model="appealDialogVisible" :title="appealDialogTitle" width="680px">
+      <el-form :model="appealForm" label-position="top" class="appeal-form">
+        <div class="appeal-grid">
+          <el-form-item label="诉求内容" required>
+            <el-input v-model.trim="appealForm.claimText" type="textarea" :rows="4" placeholder="请描述你的诉求" />
+          </el-form-item>
+          <el-form-item label="证据说明">
+            <el-input
+              v-model.trim="appealForm.evidenceText"
+              type="textarea"
+              :rows="4"
+              placeholder="请填写证据说明（可选）"
+            />
+          </el-form-item>
+        </div>
+      </el-form>
+      <div class="appeal-actions">
+        <input
+          ref="evidenceImageInputRef"
+          type="file"
+          accept="image/png,image/jpeg,image/webp,image/gif"
+          class="hidden-file"
+          @change="onEvidenceImageChange"
+        />
+        <button type="button" class="small-btn" @click="chooseEvidenceImage">上传证据图片</button>
+        <span class="file-name">{{ evidenceImageFile ? evidenceImageFile.name : "未选择图片" }}</span>
+      </div>
+      <template #footer>
+        <div class="dialog-footer">
+          <button type="button" class="small-btn" @click="appealDialogVisible = false">取消</button>
+          <button type="button" class="small-btn primary" :disabled="appealing" @click="handleAppeal">
+            {{ appealing ? "提交中..." : "提交申诉" }}
+          </button>
+        </div>
+      </template>
+    </el-dialog>
   </section>
 </template>
 
@@ -365,27 +474,75 @@ watch(() => route.params.id, fetchTask);
 
 .head-actions {
   display: flex;
+  align-items: flex-start;
+  justify-content: flex-end;
   gap: 8px;
   flex-wrap: wrap;
+  margin-left: auto;
+}
+
+.confirm-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  width: 220px;
+}
+
+.minor-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.minor-actions.single {
+  grid-template-columns: 1fr;
 }
 
 .action-btn {
-  border: 1px solid #d8b989;
-  border-radius: 999px;
-  padding: 8px 16px;
-  color: #b98335;
+  border: 1px solid #d0dced;
+  border-radius: 10px;
+  padding: 8px 14px;
+  min-height: 38px;
+  color: #3c5a7d;
   background: #fff;
   cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.action-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.action-btn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+  transform: none;
 }
 
 .action-btn.reject {
-  border-color: #e2b8b8;
+  border-color: #f0d0d0;
+  background: #fff7f7;
   color: #a74a4a;
 }
 
 .action-btn.done {
   border-color: #2f5a90;
-  color: #2f5a90;
+  background: #2f5a90;
+  color: #fff;
+  font-weight: 600;
+  width: 100%;
+  box-shadow: 0 6px 16px rgba(47, 90, 144, 0.18);
+}
+
+.action-btn.appeal {
+  border-color: #9fd5f6;
+  background: #f3faff;
+  color: #299be4;
+}
+
+.minor-actions .action-btn {
+  width: 100%;
 }
 
 .card {
@@ -414,6 +571,34 @@ watch(() => route.params.id, fetchTask);
 
 .description-text {
   margin-top: 0;
+}
+
+.appeal-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.appeal-form :deep(.el-form-item) {
+  margin-bottom: 0;
+}
+
+.appeal-form :deep(.el-textarea__inner) {
+  resize: none;
+}
+
+.appeal-actions {
+  margin-top: 10px;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
 }
 
 .delivery-panel {
@@ -480,11 +665,20 @@ watch(() => route.params.id, fetchTask);
 }
 
 @media (max-width: 980px) {
+  .confirm-actions {
+    width: min(320px, 100%);
+  }
+  .appeal-grid {
+    grid-template-columns: 1fr;
+  }
   .info-grid {
     grid-template-columns: 1fr;
   }
   .detail-head {
     flex-direction: column;
+  }
+  .head-actions {
+    width: 100%;
   }
 }
 </style>

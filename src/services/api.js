@@ -67,3 +67,8 @@ export const messageApi = {
   getUserList: (userId) => request.get(`/messages/user/${userId}`),
   getAll: () => request.get("/messages/all")
 };
+
+export const taskAppealApi = {
+  create: (data) => request.post("/task-appeals", data),
+  getUserList: (userId) => request.get(`/task-appeals/user/${userId}`)
+};
