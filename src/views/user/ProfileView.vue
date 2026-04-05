@@ -11,8 +11,8 @@ const route = useRoute();
 const router = useRouter();
 const auth = useAuthStore();
 
-const tabs = ["收藏", "个人仓库（已购买的数据）", "我的数据（本人上传的）", "我的订单", "发布任务", "承接任务"];
-const datasetTabs = ["收藏", "个人仓库（已购买的数据）", "我的数据（本人上传的）"];
+const tabs = ["收藏", "个人仓库", "我的数据", "我的订单", "发布任务", "承接任务"];
+const datasetTabs = ["收藏", "个人仓库", "我的数据"];
 const needTabs = ["发布任务", "承接任务"];
 const orderTabs = ["我的订单"];
 
@@ -37,8 +37,8 @@ const today = computed(() => new Date().toISOString().slice(0, 10));
 
 const tabDatasets = computed(() => {
   if (activeTab.value === "收藏") return favoriteDatasets.value;
-  if (activeTab.value === "个人仓库（已购买的数据）") return purchasedDatasets.value;
-  if (activeTab.value === "我的数据（本人上传的）") return myDatasets.value;
+  if (activeTab.value === "个人仓库") return purchasedDatasets.value;
+  if (activeTab.value === "我的数据") return myDatasets.value;
   return [];
 });
 
@@ -286,14 +286,14 @@ async function loadTabData() {
     await fetchOrders(false);
     return;
   }
-  if (activeTab.value === "个人仓库（已购买的数据）") {
+  if (activeTab.value === "个人仓库") {
     datasetLoading.value = true;
     const orderList = await fetchOrders(true);
     await fetchPurchasedDatasets(orderList);
     datasetLoading.value = false;
     return;
   }
-  if (activeTab.value === "我的数据（本人上传的）") {
+  if (activeTab.value === "我的数据") {
     await fetchMyDatasets(false);
     return;
   }

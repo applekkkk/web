@@ -25,6 +25,16 @@ const background = ref(true);
 const size = ref("default");
 const purchasedIdSet = ref(new Set());
 
+function getAuthorId(item) {
+  return Number(item?.authorId ?? item?.author_id ?? 0);
+}
+
+function isOwnProduct(item) {
+  const uid = Number(auth.user?.id ?? 0);
+  if (!uid) return false;
+  return getAuthorId(item) === uid;
+}
+
 const categories = computed(() => {
   const uniq = new Set(marketList.value.map((item) => item.category));
   return ["All", ...uniq];
@@ -62,7 +72,7 @@ async function fetchMarket() {
       size: item?.size ?? item?.sizeLabel ?? item?.size_label ?? "-",
       author: item?.author ?? item?.authorName ?? item?.author_name ?? "",
       uploadDate: item?.uploadDate ?? item?.upload_date ?? "",
-      purchased: purchasedIdSet.value.has(Number(item.id))
+      purchased: purchasedIdSet.value.has(Number(item.id)) || isOwnProduct(item)
     }));
     total.value = Number(res?.data?.total ?? 0);
   } catch (e) {

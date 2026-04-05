@@ -221,7 +221,7 @@ async function submit() {
 </script>
 
 <template>
-  <PanelCard title="数据上传">
+  <PanelCard>
     <div class="form-grid">
       <label>
         数据名称

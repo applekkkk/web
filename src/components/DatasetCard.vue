@@ -70,8 +70,8 @@ function displayAuthor(item) {
 <style scoped>
 .card {
   border: 1px solid #eaedf3;
-  border-radius: 14px;
-  padding: 16px;
+  border-radius: 12px;
+  padding: 12px;
   background: #fff;
   cursor: pointer;
   transition: box-shadow 0.2s ease, transform 0.2s ease;
@@ -85,7 +85,7 @@ function displayAuthor(item) {
 .card-main h3 {
   margin: 0;
   color: #202a36;
-  font-size: 30px;
+  font-size: 17px;
   line-height: 1.2;
 }
 
@@ -93,27 +93,27 @@ function displayAuthor(item) {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  margin-top: 10px;
+  margin-top: 8px;
 }
 
 .pill {
   border: 1px solid #e2e7ef;
   border-radius: 8px;
-  padding: 4px 10px;
+  padding: 3px 9px;
   color: #4e5d70;
-  font-size: 13px;
+  font-size: 12px;
   background: #fff;
 }
 
 .info {
-  margin: 12px 0 0;
+  margin: 9px 0 0;
   color: #515d6d;
-  font-size: 15px;
-  line-height: 1.75;
+  font-size: 14px;
+  line-height: 1.6;
 }
 
 .card-foot {
-  margin-top: 14px;
+  margin-top: 10px;
   display: flex;
   justify-content: space-between;
   gap: 12px;
@@ -124,9 +124,9 @@ function displayAuthor(item) {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 6px;
   color: #6a7484;
-  font-size: 13px;
+  font-size: 12px;
 }
 
 .avatar {
@@ -148,9 +148,9 @@ function displayAuthor(item) {
 
 .stats {
   display: flex;
-  gap: 8px;
+  gap: 6px;
   color: #6b7688;
-  font-size: 14px;
+  font-size: 13px;
 }
 
 .stat-item {
@@ -159,8 +159,8 @@ function displayAuthor(item) {
   gap: 4px;
   border: none;
   border-radius: 8px;
-  padding: 4px 6px;
-  min-width: 88px;
+  padding: 3px 6px;
+  min-width: 74px;
   color: inherit;
   background: transparent;
   cursor: pointer;
@@ -171,8 +171,8 @@ function displayAuthor(item) {
 }
 
 .stat-icon-wrap {
-  width: 24px;
-  height: 24px;
+  width: 20px;
+  height: 20px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -180,21 +180,21 @@ function displayAuthor(item) {
 }
 
 .stat-icon {
-  width: 24px;
-  height: 24px;
+  width: 20px;
+  height: 20px;
   display: block;
   object-fit: contain;
 }
 
 .stat-value {
-  min-width: 34px;
+  min-width: 26px;
   text-align: left;
   white-space: nowrap;
 }
 
 @media (max-width: 900px) {
   .card-main h3 {
-    font-size: 24px;
+    font-size: 16px;
   }
 
   .card-foot {

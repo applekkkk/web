@@ -52,11 +52,18 @@ function normalizeProduct(item) {
   return {
     ...item,
     id: item.id,
+    authorId: item?.authorId ?? item?.author_id ?? null,
     size: item?.size ?? item?.sizeLabel ?? item?.size_label ?? "-",
     author: item?.author ?? item?.authorName ?? item?.author_name ?? "",
     uploadDate: item?.uploadDate ?? item?.upload_date ?? "",
     summary: parseSummary(item?.summary)
   };
+}
+
+function isOwnProduct(item) {
+  const uid = Number(auth.user?.id ?? 0);
+  if (!uid || !item) return false;
+  return Number(item?.authorId ?? item?.author_id ?? 0) === uid;
 }
 
 function hasPurchased(productId, orderList) {
@@ -73,7 +80,7 @@ async function refreshPurchasedState() {
     const res = await orderApi.getUserList(auth.user.id);
     if (res?.code !== 200) return;
     const list = Array.isArray(res?.data) ? res.data : [];
-    dataset.value.purchased = hasPurchased(dataset.value.id, list);
+    dataset.value.purchased = hasPurchased(dataset.value.id, list) || isOwnProduct(dataset.value);
   } catch {
     // keep current purchased state when order fetch fails
   }

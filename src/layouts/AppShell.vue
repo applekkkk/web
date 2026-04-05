@@ -212,10 +212,10 @@ onBeforeUnmount(() => {
   margin-bottom: 12px;
   border: none;
   border-radius: 10px;
-  padding: 13px 14px;
+  padding: 12px 14px;
   color: inherit;
-  font-size: 15px;
-  font-weight: 600;
+  font-size: 18px;
+  font-weight: 700;
   line-height: 1.25;
   text-align: left;
   background: transparent;
