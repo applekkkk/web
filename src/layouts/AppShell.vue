@@ -22,13 +22,19 @@ const adminMenus = [
   { to: "/admin/review", label: "数据审核"},
   { to: "/admin/users", label: "用户管理"},
   { to: "/admin/orders", label: "订单监控" },
+  { to: "/admin/appeals", label: "申诉处理" },
   { to: "/admin/messages", label: "留言查看" }
 ];
 
 const menus = computed(() => (isAdmin.value ? adminMenus : userMenus));
-const avatarUrl = computed(() => auth.user?.avatar || "/img/avatar.png");
 const sidebarProfilePath = computed(() => (isAdmin.value ? "/admin/profile" : "/user/profile"));
 const sidebarUserName = computed(() => auth.user?.name || "未登录用户");
+const userInitial = computed(() => {
+  const raw = String(auth.user?.name || "用户").trim();
+  return raw ? raw.slice(0, 1).toUpperCase() : "U";
+});
+const sidebarUserMeta = computed(() => (isAdmin.value ? "系统管理员" : `${auth.user?.points ?? 0} 积分`));
+const topUserMeta = computed(() => (isAdmin.value ? "管理员账号" : `${auth.user?.points ?? 0} 积分`));
 const checkInText = computed(() => (auth.canDailyCheckIn ? "每日签到 +10" : "今日已签到"));
 const avatarMenuOpen = ref(false);
 
@@ -54,10 +60,6 @@ function logout() {
   avatarMenuOpen.value = false;
   auth.logout();
   router.push("/login");
-}
-
-function onAvatarError(event) {
-  event.target.src = "/img/avatar.png";
 }
 
 async function handleCheckIn() {
@@ -127,11 +129,10 @@ onBeforeUnmount(() => {
         :class="{ active: isActive(sidebarProfilePath) }"
         @click="navigate(sidebarProfilePath)"
       >
-        <span class="profile-avatar-wrap">
-          <img class="profile-avatar" :src="avatarUrl" alt="侧边栏头像" @error="onAvatarError" />
-        </span>
+        <span class="profile-avatar">{{ userInitial }}</span>
         <span class="profile-text">
           <strong>{{ sidebarUserName }}</strong>
+          <small>{{ sidebarUserMeta }}</small>
         </span>
       </button>
     </aside>
@@ -140,7 +141,7 @@ onBeforeUnmount(() => {
       <header class="topbar">
         <div>
           <strong>{{ route.meta.title || "页面" }}</strong>
-          <div class="sub">欢迎，{{ auth.user?.name }}<span v-if="!isAdmin">（积分：{{ auth.user?.points ?? 0 }}）</span></div>
+          <div class="sub">欢迎，{{ auth.user?.name }}</div>
         </div>
 
         <div class="topbar-actions">
@@ -154,8 +155,12 @@ onBeforeUnmount(() => {
           </button>
 
           <div class="avatar-wrap">
-            <button class="avatar-btn" @click.stop="toggleAvatarMenu" :title="'用户菜单'">
-              <img class="avatar-img" :src="avatarUrl" alt="用户头像" @error="onAvatarError" />
+            <button class="user-chip" @click.stop="toggleAvatarMenu" :title="'用户菜单'">
+              <span class="chip-avatar">{{ userInitial }}</span>
+              <span class="chip-text">
+                <strong>{{ auth.user?.name || "未登录用户" }}</strong>
+                <small>{{ topUserMeta }}</small>
+              </span>
             </button>
             <div v-if="avatarMenuOpen" class="avatar-menu">
               <button type="button" class="avatar-menu-item" @click="goProfile">进入个人中心</button>
@@ -184,7 +189,9 @@ onBeforeUnmount(() => {
   align-self: flex-start;
   display: flex;
   flex-direction: column;
+  flex: 0 0 230px;
   width: 230px;
+  min-width: 230px;
   height: 100vh;
   overflow: hidden;
   color: #eef4ff;
@@ -263,9 +270,9 @@ onBeforeUnmount(() => {
   gap: 10px;
   width: 100%;
   border: none;
-  border-radius: 12px;
+  border-radius: 0;
   margin-top: 12px;
-  padding: 10px 12px;
+  padding: 8px 2px;
   color: #eef4ff;
   background: transparent;
   cursor: pointer;
@@ -273,7 +280,8 @@ onBeforeUnmount(() => {
 
 .profile-entry.active,
 .profile-entry:hover {
-  background: rgba(255, 255, 255, 0.2);
+  background: transparent;
+  opacity: 0.9;
 }
 
 .sidebar-divider {
@@ -282,22 +290,18 @@ onBeforeUnmount(() => {
   margin-top: 6px;
 }
 
-.profile-avatar-wrap {
+.profile-avatar {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
   border-radius: 50%;
-  background: #fff;
-  flex: 0 0 36px;
-}
-
-.profile-avatar {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  object-fit: cover;
+  font-size: 19px;
+  font-weight: 700;
+  color: #eef4ff;
+  background: linear-gradient(135deg, #6f80ff, #5d63f0);
 }
 
 .profile-text {
@@ -307,17 +311,18 @@ onBeforeUnmount(() => {
 }
 
 .profile-text strong {
-  font-size: 14px;
+  font-size: 18px;
 }
 
 .profile-text small {
-  margin-top: 3px;
-  color: #d8e3f5;
-  font-size: 12px;
+  margin-top: 2px;
+  color: #c6d7ee;
+  font-size: 13px;
 }
 
 .main {
   flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
 }
@@ -362,15 +367,46 @@ onBeforeUnmount(() => {
   position: relative;
 }
 
-.avatar-btn {
-  width: 36px;
-  height: 36px;
+.user-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
   border: none;
-  border-radius: 50%;
+  border-radius: 0;
   padding: 0;
-  overflow: hidden;
+  color: #2f4664;
   background: transparent;
   cursor: pointer;
+}
+
+.chip-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  font-size: 16px;
+  font-weight: 700;
+  color: #eef4ff;
+  background: linear-gradient(135deg, #6f80ff, #5d63f0);
+}
+
+.chip-text {
+  display: grid;
+  text-align: left;
+  line-height: 1.2;
+}
+
+.chip-text strong {
+  font-size: 14px;
+  color: #23344c;
+}
+
+.chip-text small {
+  margin-top: 1px;
+  color: #6f829d;
+  font-size: 12px;
 }
 
 .avatar-menu {
@@ -403,14 +439,6 @@ onBeforeUnmount(() => {
 
 .avatar-menu-item.danger {
   color: #b13a3a;
-}
-
-.avatar-img {
-  width: 100%;
-  height: 100%;
-  display: block;
-  object-fit: cover;
-  border-radius: 50%;
 }
 
 .content {

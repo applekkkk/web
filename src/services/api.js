@@ -32,7 +32,9 @@ export const productApi = {
 export const orderApi = {
   getUserList: (userId) => request.get(`/orders/user/${userId}`),
   getAll: () => request.get("/orders/all"),
-  create: (data) => request.post("/orders", data)
+  create: (data) => request.post("/orders", data),
+  adminSetPurchaseStatus: (buyerId, productId, purchased) =>
+    request.put("/orders/admin/purchase-status", null, { params: { buyerId, productId, purchased } })
 };
 
 export const customRequestApi = {
@@ -44,7 +46,8 @@ export const customRequestApi = {
   accept: (id, params) => request.put(`/custom-requests/${id}/accept`, null, { params }),
   submitDelivery: (id, params) => request.put(`/custom-requests/${id}/delivery`, null, { params }),
   complete: (id, params) => request.put(`/custom-requests/${id}/complete`, null, { params }),
-  reject: (id, params) => request.put(`/custom-requests/${id}/reject`, null, { params })
+  reject: (id, params) => request.put(`/custom-requests/${id}/reject`, null, { params }),
+  adminUpdateStatus: (id, status) => request.put(`/custom-requests/${id}/admin-status`, null, { params: { status } })
 };
 
 export const reviewApi = {
@@ -70,5 +73,9 @@ export const messageApi = {
 
 export const taskAppealApi = {
   create: (data) => request.post("/task-appeals", data),
-  getUserList: (userId) => request.get(`/task-appeals/user/${userId}`)
+  getUserList: (userId) => request.get(`/task-appeals/user/${userId}`),
+  getAll: () => request.get("/task-appeals/all"),
+  process: (appealId) => request.put(`/task-appeals/${appealId}/process`),
+  forceSettle: (appealId) => request.put(`/task-appeals/${appealId}/force-settle`),
+  forceRelease: (appealId) => request.put(`/task-appeals/${appealId}/force-release`)
 };

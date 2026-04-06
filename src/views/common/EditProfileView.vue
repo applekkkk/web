@@ -1,11 +1,12 @@
 ﻿<script setup>
-import { onBeforeUnmount, reactive, ref } from "vue";
-import { useRouter } from "vue-router";
+import { computed, onBeforeUnmount, reactive, ref } from "vue";
+import { useRoute, useRouter } from "vue-router";
 import { ElMessage } from "element-plus";
 import { useAuthStore } from "../../stores/auth";
 import { userApi } from "../../services/api";
 
 const router = useRouter();
+const route = useRoute();
 const auth = useAuthStore();
 
 const form = reactive({
@@ -24,6 +25,14 @@ const verifyingEmail = ref(false);
 const localEmailVerified = ref(Number(auth.user?.emailVerified ?? 0) === 1);
 const codeCountdown = ref(0);
 let codeTimer = null;
+const displayNameSnapshot = ref(auth.user?.name || "未命名用户");
+const userInitial = computed(() => {
+  const raw = String(displayNameSnapshot.value || auth.user?.name || "U").trim();
+  return raw ? raw.slice(0, 1).toUpperCase() : "U";
+});
+const userMeta = computed(() =>
+  route.path.startsWith("/admin") ? "系统管理员" : `${Number(auth.user?.points ?? 0)} 积分`
+);
 
 function chooseAvatar() {
   fileInputRef.value?.click();
@@ -144,6 +153,7 @@ async function onSave() {
     }
 
     auth.updateProfile(profilePayload);
+    displayNameSnapshot.value = profilePayload.name;
     ElMessage.success(hasAnyPasswordInput ? "个人资料和密码已更新" : "个人资料已更新");
     router.back();
   } catch (error) {
@@ -170,7 +180,11 @@ onBeforeUnmount(() => {
   <section class="edit-profile-page">
     <div class="card">
       <div class="avatar-row">
-        <img class="avatar" :src="form.avatar || '/img/avatar.png'" alt="头像" />
+        <span class="avatar-initial">{{ userInitial }}</span>
+        <div class="avatar-meta">
+          <strong>{{ displayNameSnapshot }}</strong>
+          <span>{{ userMeta }}</span>
+        </div>
       </div>
 
       <label>
@@ -247,12 +261,30 @@ onBeforeUnmount(() => {
   gap: 12px;
   margin-bottom: 14px;
 }
-.avatar {
+.avatar-initial {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   width: 64px;
   height: 64px;
   border-radius: 50%;
-  object-fit: cover;
-  border: 1px solid #d5deed;
+  color: #eef4ff;
+  font-size: 28px;
+  font-weight: 700;
+  background: linear-gradient(135deg, #6f80ff, #5d63f0);
+}
+.avatar-meta {
+  display: grid;
+  line-height: 1.2;
+}
+.avatar-meta strong {
+  color: #253a56;
+  font-size: 16px;
+}
+.avatar-meta span {
+  margin-top: 3px;
+  color: #6f829d;
+  font-size: 13px;
 }
 label {
   display: block;

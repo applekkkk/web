@@ -11,6 +11,12 @@ const NORMAL_CATEGORY = "普通数据";
 const categoryOptions = [GRAPH_CATEGORY, NORMAL_CATEGORY];
 const sizeUnitOptions = ["MB", "GB"];
 const auth = useAuthStore();
+const INPUT_LIMITS = {
+  name: 60,
+  info: 400,
+  tags: 120,
+  summaryText: 2000
+};
 
 const form = reactive({
   name: "",
@@ -225,7 +231,11 @@ async function submit() {
     <div class="form-grid">
       <label>
         数据名称
-        <input v-model.trim="form.name" placeholder="例如：幼儿园接触时序网络" />
+        <input
+          v-model.trim="form.name"
+          :maxlength="INPUT_LIMITS.name"
+          placeholder="例如：幼儿园接触时序网络"
+        />
       </label>
 
       <label>
@@ -239,6 +249,7 @@ async function submit() {
         数据简介
         <textarea
           v-model.trim="form.info"
+          :maxlength="INPUT_LIMITS.info"
           rows="3"
           placeholder="简要描述数据内容、研究背景和应用场景"
         />
@@ -246,7 +257,11 @@ async function submit() {
 
       <label>
         标签（逗号分隔）
-        <input v-model.trim="form.tags" placeholder="时序网络,接触网络" />
+        <input
+          v-model.trim="form.tags"
+          :maxlength="INPUT_LIMITS.tags"
+          placeholder="时序网络,接触网络"
+        />
       </label>
 
       <label>
@@ -258,6 +273,7 @@ async function submit() {
         数据摘要（每行一条，格式：属性:描述）
         <textarea
           v-model.trim="form.summaryText"
+          :maxlength="INPUT_LIMITS.summaryText"
           rows="5"
           placeholder="sex:成员性别，F表示女性，M表示男性&#10;time:接触事件发生时间（秒）"
         />

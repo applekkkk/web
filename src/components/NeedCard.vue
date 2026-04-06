@@ -64,8 +64,12 @@ function rewardText(item) {
     <p class="desc">{{ item.description || "暂无详细任务描述。" }}</p>
 
     <div class="pill-row">
-      <span class="pill">{{ item.category || "其他" }}</span>
-      <span v-for="tag in String(item.tags || '').split(',').filter(Boolean)" :key="`${item.id}-${tag}`" class="pill">
+      <span class="pill type-pill">{{ item.category || "其他" }}</span>
+      <span
+        v-for="tag in String(item.tags || '').split(',').filter(Boolean)"
+        :key="`${item.id}-${tag}`"
+        class="pill custom-pill"
+      >
         {{ tag.trim() }}
       </span>
     </div>
@@ -73,7 +77,6 @@ function rewardText(item) {
     <div class="meta">
       <span>发布者：{{ item.publisher || "-" }}</span>
       <span>预算：{{ item.budget }} 积分</span>
-      <span v-if="item.attachmentName">附件：{{ item.attachmentName }}</span>
       <span v-if="item.acceptedBy">承接人：{{ item.acceptedBy }}</span>
     </div>
 
@@ -149,10 +152,10 @@ h3 {
   align-items: center;
   gap: 5px;
   border-radius: 999px;
-  padding: 2px 9px;
-  background: linear-gradient(135deg, #ffdfa4, #f5b057);
-  border: 1px solid #f2c27a;
-  color: #5a2c00;
+  padding: 4px 12px;
+  background: #e8f8ee;
+  border: 1px solid #9ddfb4;
+  color: #0e8a43;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
 }
 
@@ -172,6 +175,12 @@ h3 {
   color: #4d5b70;
   font-size: 14px;
   line-height: 1.6;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  word-break: break-word;
 }
 
 .pill-row {
@@ -188,6 +197,18 @@ h3 {
   color: #40536f;
   font-size: 11px;
   background: #fff;
+}
+
+.type-pill {
+  border-color: #b9d6ff;
+  color: #2563c9;
+  background: #ecf5ff;
+}
+
+.custom-pill {
+  border-color: #d7dee9;
+  color: #5b687a;
+  background: transparent;
 }
 
 .meta {

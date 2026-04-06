@@ -24,6 +24,10 @@ const appealForm = reactive({
 });
 const evidenceImageFile = ref(null);
 const evidenceImageInputRef = ref(null);
+const adminUpdatingStatus = ref(false);
+const adminStatus = ref(0);
+const processingAppeal = ref(false);
+const appealStatus = ref(0);
 
 function normalizeRequest(item) {
   return {
@@ -48,17 +52,29 @@ function normalizeRequest(item) {
 }
 
 const statusCode = computed(() => Number(task.value?.needStatus ?? 0));
+const isAdminView = computed(() => route.path.startsWith("/admin"));
+const appealId = computed(() => Number(route.query.appealId ?? 0));
+const isAppealMode = computed(() => isAdminView.value && appealId.value > 0);
+const isAppealProcessed = computed(() => Number(appealStatus.value) === 1);
 const isPublisher = computed(() => Number(task.value?.publisherId ?? 0) === Number(auth.user?.id ?? 0));
 const isAcceptor = computed(() => Number(task.value?.acceptorId ?? 0) === Number(auth.user?.id ?? 0));
 const hasAcceptor = computed(() => Number(task.value?.acceptorId ?? 0) > 0);
 
-const canAccept = computed(() => statusCode.value === 0 && !isPublisher.value);
-const canSubmitDelivery = computed(() => statusCode.value === 1 && isAcceptor.value);
-const canConfirmComplete = computed(() => statusCode.value === 2 && isPublisher.value);
-const canAppeal = computed(() => (statusCode.value === 1 || statusCode.value === 2) && (isPublisher.value || isAcceptor.value));
+const canAccept = computed(() => statusCode.value === 0 && !isPublisher.value && !isAdminView.value);
+const canSubmitDelivery = computed(() => statusCode.value === 1 && isAcceptor.value && !isAdminView.value);
+const canConfirmComplete = computed(() => statusCode.value === 2 && isPublisher.value && !isAdminView.value);
+const canAppeal = computed(
+  () => !isAdminView.value && (statusCode.value === 1 || statusCode.value === 2) && (isPublisher.value || isAcceptor.value)
+);
 
-const canSeeAcceptorEmail = computed(() => isPublisher.value && statusCode.value >= 1);
+const canSeeAcceptorEmail = computed(() => (isPublisher.value || isAdminView.value) && statusCode.value >= 1);
 const appealDialogTitle = computed(() => `${task.value?.title || "任务"} · 任务申诉`);
+const adminStatusOptions = [
+  { value: 0, label: "未承接" },
+  { value: 1, label: "进行中" },
+  { value: 2, label: "待发布者确认" },
+  { value: 3, label: "已完成" }
+];
 
 const statusText = computed(() => {
   if (statusCode.value === 1) return "进行中";
@@ -109,11 +125,68 @@ async function fetchTask() {
     const res = await customRequestApi.getById(id);
     if (res?.code !== 200) throw new Error(res?.message || "加载失败");
     task.value = normalizeRequest(res.data || {});
+    await syncAppealStatus();
   } catch (error) {
     task.value = null;
+    await syncAppealStatus();
     ElMessage.error(error?.message || "加载失败");
   } finally {
     loading.value = false;
+  }
+}
+
+async function syncAppealStatus() {
+  if (!isAppealMode.value || !appealId.value) {
+    appealStatus.value = 0;
+    return;
+  }
+  try {
+    const res = await taskAppealApi.getAll();
+    const list = Array.isArray(res?.data) ? res.data : [];
+    const current = list.find((item) => Number(item?.id) === appealId.value);
+    appealStatus.value = Number(current?.status ?? 0);
+  } catch {
+    appealStatus.value = 0;
+  }
+}
+
+async function handleAdminStatusChange(nextStatus) {
+  if (!isAdminView.value || !task.value) return;
+  const targetStatus = Number(nextStatus);
+  if (!Number.isInteger(targetStatus)) return;
+  if (targetStatus === Number(task.value.needStatus ?? 0)) return;
+  adminUpdatingStatus.value = true;
+  try {
+    const res = await customRequestApi.adminUpdateStatus(task.value.id, targetStatus);
+    if (res?.code !== 200) {
+      throw new Error(res?.message || "状态更新失败");
+    }
+    await fetchTask();
+    ElMessage.success("任务状态已更新");
+  } catch (error) {
+    adminStatus.value = Number(task.value?.needStatus ?? 0);
+    ElMessage.error(error?.message || "状态更新失败");
+  } finally {
+    adminUpdatingStatus.value = false;
+  }
+}
+
+async function handleProcessAppeal() {
+  if (!isAppealMode.value || processingAppeal.value) return;
+  if (isAppealProcessed.value) {
+    ElMessage.success("申诉已处理");
+    return;
+  }
+  processingAppeal.value = true;
+  try {
+    const res = await taskAppealApi.process(appealId.value);
+    if (res?.code !== 200) throw new Error(res?.message || "处理失败");
+    appealStatus.value = 1;
+    ElMessage.success("申诉已处理");
+  } catch (error) {
+    ElMessage.error(error?.message || "处理失败");
+  } finally {
+    processingAppeal.value = false;
   }
 }
 
@@ -302,6 +375,13 @@ async function downloadFile(name) {
 
 onMounted(fetchTask);
 watch(() => route.params.id, fetchTask);
+watch(
+  () => task.value?.needStatus,
+  (val) => {
+    adminStatus.value = Number(val ?? 0);
+  },
+  { immediate: true }
+);
 </script>
 
 <template>
@@ -316,7 +396,34 @@ watch(() => route.params.id, fetchTask);
         </div>
       </div>
       <div class="head-actions">
-        <button v-if="canAccept" class="action-btn" type="button" @click="handleAccept">承接任务</button>
+        <template v-if="isAdminView">
+          <div class="admin-status-box">
+            <el-select
+              v-model="adminStatus"
+              class="admin-status-select"
+              :disabled="adminUpdatingStatus"
+              @change="handleAdminStatusChange"
+            >
+              <el-option
+                v-for="item in adminStatusOptions"
+                :key="item.value"
+                :label="item.label"
+                :value="item.value"
+              />
+            </el-select>
+            <button
+              v-if="isAppealMode"
+              type="button"
+              class="admin-process-btn"
+              :class="{ done: isAppealProcessed }"
+              :disabled="processingAppeal"
+              @click="handleProcessAppeal"
+            >
+              {{ processingAppeal ? "处理中..." : isAppealProcessed ? "已处理" : "处理完成" }}
+            </button>
+          </div>
+        </template>
+        <button v-else-if="canAccept" class="action-btn" type="button" @click="handleAccept">承接任务</button>
         <div v-else-if="canConfirmComplete" class="confirm-actions">
           <button class="action-btn done" type="button" :disabled="completing" @click="handleComplete">
             {{ completing ? "确认中..." : "确认完成并结算" }}
@@ -481,6 +588,23 @@ watch(() => route.params.id, fetchTask);
   margin-left: auto;
 }
 
+.admin-status-box {
+  display: grid;
+  gap: 6px;
+  min-width: 210px;
+  justify-items: stretch;
+}
+
+.admin-status-label {
+  color: #5f6f84;
+  font-size: 13px;
+  text-align: right;
+}
+
+.admin-status-select {
+  min-width: 210px;
+}
+
 .confirm-actions {
   display: flex;
   flex-direction: column;
@@ -636,6 +760,22 @@ watch(() => route.params.id, fetchTask);
   background: #2f5a90;
 }
 
+.admin-process-btn {
+  width: 100%;
+  border: 1px solid #2f5a90;
+  border-radius: 10px;
+  padding: 8px 12px;
+  color: #2f5a90;
+  background: rgba(47, 90, 144, 0.14);
+  cursor: pointer;
+}
+
+.admin-process-btn.done {
+  border-color: #3aaa5d;
+  color: #2e8d4f;
+  background: rgba(58, 170, 93, 0.14);
+}
+
 .info-grid {
   margin-top: 18px;
   display: grid;
@@ -679,6 +819,10 @@ watch(() => route.params.id, fetchTask);
   }
   .head-actions {
     width: 100%;
+    justify-content: flex-start;
+  }
+  .admin-status-label {
+    text-align: left;
   }
 }
 </style>

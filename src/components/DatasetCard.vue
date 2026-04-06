@@ -20,11 +20,16 @@ function displayAuthor(item) {
 <template>
   <article class="card" @click="onOpen">
     <div class="card-main">
-      <h3>{{ item.name }}</h3>
+      <div class="card-head">
+        <h3>{{ item.name }}</h3>
+        <span class="points-badge">
+          <span class="points-value">{{ item.price ?? 0 }} 积分</span>
+        </span>
+      </div>
 
       <div class="pill-row">
-        <span class="pill">{{ item.category }}</span>
-        <span v-for="tag in String(item.tags).split(',')" :key="`${item.id}-${tag}`" class="pill">
+        <span class="pill type-pill">{{ item.category }}</span>
+        <span v-for="tag in String(item.tags).split(',').filter(Boolean)" :key="`${item.id}-${tag}`" class="pill custom-pill">
           {{ tag.trim() }}
         </span>
       </div>
@@ -38,8 +43,6 @@ function displayAuthor(item) {
           <span>{{ item.uploadDate }} 上传</span>
           <span class="dot">|</span>
           <span>{{ item.size }}</span>
-          <span class="dot">|</span>
-          <span>{{ item.price }} 积分</span>
         </div>
 
         <div class="stats" @click.stop>
@@ -89,6 +92,32 @@ function displayAuthor(item) {
   line-height: 1.2;
 }
 
+.card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.points-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 999px;
+  padding: 4px 12px;
+  border: 1px solid #9ddfb4;
+  background: #e8f8ee;
+  color: #0e8a43;
+  white-space: nowrap;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
+}
+
+.points-value {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+}
+
 .pill-row {
   display: flex;
   flex-wrap: wrap;
@@ -105,11 +134,29 @@ function displayAuthor(item) {
   background: #fff;
 }
 
+.type-pill {
+  border-color: #b9d6ff;
+  color: #2563c9;
+  background: #ecf5ff;
+}
+
+.custom-pill {
+  border-color: #d7dee9;
+  color: #5b687a;
+  background: transparent;
+}
+
 .info {
   margin: 9px 0 0;
   color: #515d6d;
   font-size: 14px;
   line-height: 1.6;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  word-break: break-word;
 }
 
 .card-foot {
@@ -193,6 +240,11 @@ function displayAuthor(item) {
 }
 
 @media (max-width: 900px) {
+  .card-head {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
   .card-main h3 {
     font-size: 16px;
   }

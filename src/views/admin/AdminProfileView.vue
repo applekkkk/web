@@ -7,8 +7,11 @@ import { messageApi, orderApi, reviewApi, userApi } from "../../services/api";
 const router = useRouter();
 const auth = useAuthStore();
 
-const avatarUrl = computed(() => auth.user?.avatar || "/img/avatar.png");
 const userName = computed(() => auth.user?.name || "平台管理员");
+const userInitial = computed(() => {
+  const raw = String(auth.user?.name || "A").trim();
+  return raw ? raw.slice(0, 1).toUpperCase() : "A";
+});
 const lastLogin = computed(() => new Date().toISOString().slice(0, 10));
 
 const pendingReviewCount = ref(0);
@@ -40,10 +43,6 @@ function goToPage(item) {
   router.push({ name: item.route, query: item.query || {} });
 }
 
-function onAvatarError(event) {
-  event.target.src = "/img/avatar.png";
-}
-
 function goEditProfile() {
   router.push("/admin/profile/edit");
 }
@@ -54,7 +53,7 @@ onMounted(loadStats);
 <template>
   <section class="admin-profile">
     <aside class="profile-block">
-      <img class="avatar" :src="avatarUrl" alt="管理员头像" @error="onAvatarError" />
+      <span class="avatar-initial">{{ userInitial }}</span>
       <h1>{{ userName }}</h1>
       <p class="role">系统管理员</p>
       <p class="meta">上次登录：{{ lastLogin }}</p>
@@ -73,7 +72,18 @@ onMounted(loadStats);
 <style scoped>
 .admin-profile { display: grid; grid-template-columns: 360px 1fr; gap: 24px; align-items: stretch; min-height: 360px; }
 .profile-block { border: 1px solid #dbe4f3; border-radius: 14px; padding: 22px 20px; background: #fff; display: grid; justify-items: start; gap: 10px; align-content: start; box-sizing: border-box; }
-.avatar { width: 86px; height: 86px; border-radius: 14px; object-fit: cover; }
+.avatar-initial {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 86px;
+  height: 86px;
+  border-radius: 50%;
+  color: #eef4ff;
+  font-size: 36px;
+  font-weight: 700;
+  background: linear-gradient(135deg, #6f80ff, #5d63f0);
+}
 h1 { margin: 6px 0 0; color: #1f2a37; font-size: 30px; }
 .role { margin: 0; color: #476487; font-size: 14px; }
 .meta { margin: 0; color: #7a8ea9; font-size: 13px; }

@@ -1,22 +1,36 @@
 <script setup>
 import { computed, ref, watch } from "vue";
-import { useRoute, useRouter } from "vue-router";
+import { useRoute } from "vue-router";
 import { ElMessage } from "element-plus";
 import request from "../../services/request";
 import { marketData } from "../../mock/data";
-import { orderApi, productApi } from "../../services/api";
+import { orderApi, productApi, taskAppealApi } from "../../services/api";
 import { useAuthStore } from "../../stores/auth";
 
 const route = useRoute();
-const router = useRouter();
 const auth = useAuthStore();
 const dataset = ref(null);
 const loading = ref(false);
 const buying = ref(false);
+const appealing = ref(false);
+const appealDialogVisible = ref(false);
+const processingAppeal = ref(false);
+const appealForm = ref({
+  claimText: "",
+  evidenceText: ""
+});
+const evidenceImageFile = ref(null);
+const evidenceImageInputRef = ref(null);
 const reviewStatus = ref("待审核");
 const reviewStatusOptions = ["待审核", "审核中", "通过", "驳回"];
 const isAdminView = computed(() => route.path.startsWith("/admin"));
+const appealId = computed(() => Number(route.query.appealId ?? 0));
+const isAppealMode = computed(() => isAdminView.value && appealId.value > 0);
+const appealBuyerId = computed(() => Number(route.query.buyerId ?? 0));
+const adminPurchaseStatus = ref("purchased");
 const suppressReviewSync = ref(true);
+const appealStatus = ref(0);
+const isAppealProcessed = computed(() => Number(appealStatus.value) === 1);
 
 const sourceDataset = computed(() => {
   const id = Number(route.params.id);
@@ -69,8 +83,10 @@ function isOwnProduct(item) {
 function hasPurchased(productId, orderList) {
   return orderList.some((item) => {
     const pid = Number(item?.productId ?? 0);
-    const amount = Number(item?.amount ?? 0);
-    return pid === Number(productId) && amount < 0;
+    const productName = String(item?.productName ?? "");
+    const byDataOrder = productName.startsWith("购买数据:");
+    const byAdminGrant = productName.startsWith("管理员授权购买:");
+    return pid === Number(productId) && (byDataOrder || byAdminGrant);
   });
 }
 
@@ -86,6 +102,21 @@ async function refreshPurchasedState() {
   }
 }
 
+async function syncAppealStatus() {
+  if (!isAppealMode.value || !appealId.value) {
+    appealStatus.value = 0;
+    return;
+  }
+  try {
+    const res = await taskAppealApi.getAll();
+    const list = Array.isArray(res?.data) ? res.data : [];
+    const current = list.find((item) => Number(item?.id) === appealId.value);
+    appealStatus.value = Number(current?.status ?? 0);
+  } catch {
+    appealStatus.value = 0;
+  }
+}
+
 async function fetchDataset() {
   const id = Number(route.params.id);
   if (!id) return;
@@ -96,14 +127,24 @@ async function fetchDataset() {
       throw new Error(res?.message || "加载失败");
     }
     dataset.value = normalizeProduct(res.data || {});
-    await refreshPurchasedState();
+    if (isAppealMode.value && appealBuyerId.value > 0) {
+      const orderRes = await orderApi.getUserList(appealBuyerId.value);
+      const orderList = Array.isArray(orderRes?.data) ? orderRes.data : [];
+      dataset.value.purchased =
+        hasPurchased(dataset.value.id, orderList) || Number(dataset.value.authorId ?? 0) === appealBuyerId.value;
+    } else {
+      await refreshPurchasedState();
+    }
+    adminPurchaseStatus.value = dataset.value?.purchased ? "purchased" : "unpurchased";
     suppressReviewSync.value = true;
     reviewStatus.value = statusLabelFromCode(res?.data?.reviewStatus ?? res?.data?.review_status);
     suppressReviewSync.value = false;
+    await syncAppealStatus();
   } catch (e) {
     const fallback = sourceDataset.value ? { ...sourceDataset.value } : null;
     dataset.value = fallback ? normalizeProduct(fallback) : null;
     suppressReviewSync.value = false;
+    await syncAppealStatus();
     if (!dataset.value) {
       ElMessage.error(e?.message || "加载失败");
     }
@@ -163,7 +204,11 @@ const tags = computed(() => {
     .filter(Boolean);
 });
 
-const authorAvatarUrl = computed(() => dataset.value?.authorAvatar || "/img/avatar.png");
+const authorInitial = computed(() => {
+  const name = String(dataset.value?.author || "").trim();
+  if (!name) return "U";
+  return name.slice(0, 1).toUpperCase();
+});
 
 function toggleLike() {
   if (!dataset.value?.id) return;
@@ -267,6 +312,100 @@ async function syncStats(onFail) {
   }
 }
 
+function chooseEvidenceImage() {
+  evidenceImageInputRef.value?.click();
+}
+
+function onEvidenceImageChange(event) {
+  const file = event.target.files?.[0];
+  evidenceImageFile.value = file || null;
+}
+
+async function uploadEvidenceImage(file) {
+  const fd = new FormData();
+  fd.append("file", file);
+  const res = await request.post("/files/upload-image", fd, {
+    headers: { "Content-Type": "multipart/form-data" }
+  });
+  if (res?.code !== 200) throw new Error(res?.message || "证据图片上传失败");
+  return res?.data?.savedName || "";
+}
+
+function openAppealDialog() {
+  if (!dataset.value?.purchased || isAdminView.value) return;
+  appealDialogVisible.value = true;
+}
+
+async function handleAppealSubmit() {
+  if (!dataset.value?.id || !auth.user?.id) return;
+  if (!String(appealForm.value.claimText || "").trim()) {
+    ElMessage.warning("请填写诉求内容");
+    return;
+  }
+  appealing.value = true;
+  try {
+    let evidenceImage = "";
+    if (evidenceImageFile.value) {
+      evidenceImage = await uploadEvidenceImage(evidenceImageFile.value);
+    }
+    const res = await taskAppealApi.create({
+      targetType: "DATA",
+      requestId: dataset.value.id,
+      appellantId: auth.user.id,
+      claimText: String(appealForm.value.claimText || "").trim(),
+      evidenceText: String(appealForm.value.evidenceText || "").trim(),
+      evidenceImage
+    });
+    if (res?.code !== 200) throw new Error(res?.message || "申诉提交失败");
+    appealDialogVisible.value = false;
+    appealForm.value = { claimText: "", evidenceText: "" };
+    evidenceImageFile.value = null;
+    if (evidenceImageInputRef.value) evidenceImageInputRef.value.value = "";
+    ElMessage.success("申诉已提交");
+  } catch (error) {
+    ElMessage.error(error?.message || "申诉提交失败");
+  } finally {
+    appealing.value = false;
+  }
+}
+
+async function handleAdminPurchaseChange(next) {
+  if (!isAppealMode.value || !dataset.value?.id) return;
+  if (!appealBuyerId.value) {
+    ElMessage.error("缺少申诉用户信息");
+    return;
+  }
+  const purchased = next === "purchased";
+  try {
+    const res = await orderApi.adminSetPurchaseStatus(appealBuyerId.value, dataset.value.id, purchased);
+    if (res?.code !== 200) throw new Error(res?.message || "状态修改失败");
+    await fetchDataset();
+    ElMessage.success("购买状态已更新");
+  } catch (error) {
+    adminPurchaseStatus.value = dataset.value?.purchased ? "purchased" : "unpurchased";
+    ElMessage.error(error?.message || "状态修改失败");
+  }
+}
+
+async function handleProcessAppeal() {
+  if (!isAppealMode.value || !appealId.value || processingAppeal.value) return;
+  if (isAppealProcessed.value) {
+    ElMessage.success("申诉已处理");
+    return;
+  }
+  processingAppeal.value = true;
+  try {
+    const res = await taskAppealApi.process(appealId.value);
+    if (res?.code !== 200) throw new Error(res?.message || "处理失败");
+    appealStatus.value = 1;
+    ElMessage.success("申诉已处理");
+  } catch (error) {
+    ElMessage.error(error?.message || "处理失败");
+  } finally {
+    processingAppeal.value = false;
+  }
+}
+
 async function handleBuy() {
   if (!dataset.value || buying.value) return;
   const price = Number(dataset.value.price ?? 0);
@@ -306,9 +445,6 @@ async function handleBuy() {
   }
 }
 
-function onAuthorAvatarError(event) {
-  event.target.src = "/img/avatar.png";
-}
 </script>
 
 <template>
@@ -323,7 +459,7 @@ function onAuthorAvatarError(event) {
 
         <div class="head-meta">
           <span class="author-wrap">
-            <img class="avatar" :src="authorAvatarUrl" alt="作者头像" @error="onAuthorAvatarError" />
+            <span class="avatar-initial">{{ authorInitial }}</span>
             <span class="seller">{{ dataset.author || "未知作者" }}</span>
           </span>
           <span>{{ dataset.uploadDate || "2024-01-01" }} 上传</span>
@@ -347,14 +483,34 @@ function onAuthorAvatarError(event) {
         </div>
       </div>
 
-      <div v-if="isAdminView" class="admin-actions">
-        <el-select v-model="reviewStatus" class="status-select" placeholder="&#23457;&#26680;&#29366;&#24577;">
-          <el-option v-for="s in reviewStatusOptions" :key="s" :label="s" :value="s" />
-        </el-select>
-        <button type="button" class="admin-download" @click="handleDownload">&#19979;&#36733;&#25991;&#20214;</button>
+      <div v-if="isAdminView" class="admin-actions" :class="{ 'appeal-mode': isAppealMode }">
+        <template v-if="isAppealMode">
+          <el-select v-model="adminPurchaseStatus" class="status-select" placeholder="购买状态" @change="handleAdminPurchaseChange">
+            <el-option label="已购买" value="purchased" />
+            <el-option label="未购买" value="unpurchased" />
+          </el-select>
+          <button
+            type="button"
+            class="appeal-process-btn"
+            :class="{ done: isAppealProcessed }"
+            :disabled="processingAppeal"
+            @click="handleProcessAppeal"
+          >
+            {{ processingAppeal ? "处理中..." : isAppealProcessed ? "已处理" : "处理完成" }}
+          </button>
+        </template>
+        <template v-else>
+          <el-select v-model="reviewStatus" class="status-select" placeholder="审核状态">
+            <el-option v-for="s in reviewStatusOptions" :key="s" :label="s" :value="s" />
+          </el-select>
+          <button type="button" class="admin-download" @click="handleDownload">下载文件</button>
+        </template>
       </div>
       <button v-else-if="!dataset.purchased" class="download" @click="handleBuy">购买数据集</button>
-      <button v-else class="purchased" type="button" disabled>已购买</button>
+      <div v-else class="purchased-actions">
+        <button class="purchased" type="button" disabled>已购买</button>
+        <button type="button" class="appeal-btn" @click="openAppealDialog">申诉</button>
+      </div>
     </header>
 
     <section class="block">
@@ -379,6 +535,43 @@ function onAuthorAvatarError(event) {
         </div>
       </div>
     </section>
+
+    <el-dialog v-model="appealDialogVisible" :title="`${dataset?.name || '数据'} · 数据申诉`" width="680px">
+      <el-form label-position="top" class="appeal-form">
+        <div class="appeal-grid">
+          <el-form-item label="诉求内容" required>
+            <el-input v-model.trim="appealForm.claimText" type="textarea" :rows="4" placeholder="请描述你的诉求" />
+          </el-form-item>
+          <el-form-item label="证据说明">
+            <el-input
+              v-model.trim="appealForm.evidenceText"
+              type="textarea"
+              :rows="4"
+              placeholder="请填写证据说明（可选）"
+            />
+          </el-form-item>
+        </div>
+      </el-form>
+      <div class="appeal-actions">
+        <input
+          ref="evidenceImageInputRef"
+          type="file"
+          accept="image/png,image/jpeg,image/webp,image/gif"
+          class="hidden-file"
+          @change="onEvidenceImageChange"
+        />
+        <button type="button" class="small-btn" @click="chooseEvidenceImage">上传证据图片</button>
+        <span class="file-name">{{ evidenceImageFile ? evidenceImageFile.name : "未选择图片" }}</span>
+      </div>
+      <template #footer>
+        <div class="dialog-footer">
+          <button type="button" class="small-btn" @click="appealDialogVisible = false">取消</button>
+          <button type="button" class="small-btn primary" :disabled="appealing" @click="handleAppealSubmit">
+            {{ appealing ? "提交中..." : "提交申诉" }}
+          </button>
+        </div>
+      </template>
+    </el-dialog>
 
   </section>
 
@@ -408,7 +601,8 @@ function onAuthorAvatarError(event) {
 h1 {
   margin: 0;
   color: #232c38;
-  font-size: 38px;
+  font-size: 24px;
+  line-height: 1.25;
 }
 
 .tag-row {
@@ -441,13 +635,18 @@ h1 {
   gap: 8px;
 }
 
-.avatar {
+.avatar-initial {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   width: 28px;
   height: 28px;
-  display: block;
-  object-fit: cover;
   border-radius: 50%;
-  border: 1px solid #dbe3ef;
+  border: 1px solid #d0dbef;
+  color: #eef4ff;
+  font-size: 13px;
+  font-weight: 700;
+  background: linear-gradient(135deg, #6f80ff, #5d63f0);
 }
 
 .seller {
@@ -495,6 +694,21 @@ h1 {
   background: #3aaa5d;
 }
 
+.purchased-actions {
+  display: grid;
+  gap: 8px;
+  justify-items: end;
+}
+
+.appeal-btn {
+  border: 1px solid #9fd5f6;
+  border-radius: 999px;
+  padding: 8px 16px;
+  color: #299be4;
+  background: #f3faff;
+  cursor: pointer;
+}
+
 .status-select {
   width: 140px;
 }
@@ -503,6 +717,12 @@ h1 {
   display: inline-flex;
   align-items: center;
   gap: 10px;
+}
+
+.admin-actions.appeal-mode {
+  display: grid;
+  justify-items: end;
+  gap: 8px;
 }
 
 .admin-download {
@@ -520,14 +740,14 @@ h1 {
 
 h2 {
   margin: 0 0 14px;
-  font-size: 30px;
+  font-size: 18px;
   color: #232c38;
 }
 
 h3 {
   margin: 14px 0 10px;
   color: #2f3b4c;
-  font-size: 22px;
+  font-size: 16px;
 }
 
 p {
@@ -565,25 +785,101 @@ p {
   margin-top: 24px;
 }
 
+.appeal-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.appeal-form :deep(.el-form-item) {
+  margin-bottom: 0;
+}
+
+.appeal-form :deep(.el-textarea__inner) {
+  resize: none;
+}
+
+.appeal-actions {
+  margin-top: 10px;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.hidden-file {
+  display: none;
+}
+
+.small-btn {
+  border: 1px solid #c7d7ef;
+  border-radius: 8px;
+  padding: 6px 12px;
+  color: #2f4e74;
+  background: #fff;
+  cursor: pointer;
+}
+
+.appeal-process-btn {
+  width: 100%;
+  border: 1px solid #2f5a90;
+  border-radius: 10px;
+  padding: 8px 16px;
+  color: #2f5a90;
+  background: rgba(47, 90, 144, 0.14);
+  cursor: pointer;
+}
+
+.appeal-process-btn.done {
+  border-color: #3aaa5d;
+  color: #2e8d4f;
+  background: rgba(58, 170, 93, 0.14);
+}
+
+.small-btn.primary {
+  border-color: #2f5a90;
+  color: #fff;
+  background: #2f5a90;
+}
+
+.file-name {
+  color: #5b6a80;
+  font-size: 13px;
+}
+
 @media (max-width: 900px) {
   h1 {
-    font-size: 30px;
+    font-size: 20px;
   }
 
   h2 {
-    font-size: 26px;
+    font-size: 17px;
   }
 
   h3 {
-    font-size: 20px;
+    font-size: 15px;
   }
 
   .detail-head {
     flex-direction: column;
   }
 
+  .purchased-actions {
+    justify-items: start;
+  }
+
   .row {
     grid-template-columns: 1fr 2fr;
+  }
+
+  .appeal-grid {
+    grid-template-columns: 1fr;
   }
 }
 </style>

@@ -14,6 +14,11 @@ const fileAccept = computed(() =>
   form.category === GRAPH_CATEGORY ? ".net,application/octet-stream,text/plain" : ".csv,text/csv"
 );
 const expectedFileSuffix = computed(() => (form.category === GRAPH_CATEGORY ? ".net" : ".csv"));
+const INPUT_LIMITS = {
+  title: 60,
+  description: 400,
+  contact: 80
+};
 
 const form = reactive({
   title: "",
@@ -143,7 +148,11 @@ async function submit() {
       <div class="form-grid">
         <label>
           数据标题
-          <input v-model.trim="form.title" placeholder="例如：社交媒体传播关系图构建" />
+          <input
+            v-model.trim="form.title"
+            :maxlength="INPUT_LIMITS.title"
+            placeholder="例如：社交媒体传播关系图构建"
+          />
         </label>
 
         <label>
@@ -155,7 +164,12 @@ async function submit() {
 
         <label class="full">
           任务描述
-          <textarea v-model.trim="form.description" rows="4" placeholder="描述需要的数据字段和内容要求"></textarea>
+          <textarea
+            v-model.trim="form.description"
+            :maxlength="INPUT_LIMITS.description"
+            rows="4"
+            placeholder="描述需要的数据字段和内容要求"
+          ></textarea>
         </label>
 
         <label>
@@ -165,7 +179,11 @@ async function submit() {
 
         <label>
           联系方式
-          <input v-model.trim="form.contact" placeholder="例如：手机号/邮箱/微信号" />
+          <input
+            v-model.trim="form.contact"
+            :maxlength="INPUT_LIMITS.contact"
+            placeholder="例如：手机号/邮箱/微信号"
+          />
         </label>
 
         <label>

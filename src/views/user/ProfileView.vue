@@ -28,9 +28,12 @@ const datasetLoading = ref(false);
 const needsLoading = ref(false);
 const ordersLoading = ref(false);
 
-const avatarUrl = computed(() => auth.user?.avatar || "/img/avatar.png");
 const userName = computed(() => auth.user?.name || "未命名用户");
 const userPoints = computed(() => Number(auth.user?.points ?? 0));
+const userInitial = computed(() => {
+  const raw = String(auth.user?.name || "U").trim();
+  return raw ? raw.slice(0, 1).toUpperCase() : "U";
+});
 const userId = computed(() => auth.user?.id ?? null);
 const userBio = computed(() => auth.user?.bio || "快来介绍一下自己");
 const today = computed(() => new Date().toISOString().slice(0, 10));
@@ -115,12 +118,13 @@ function normalizeNeed(item) {
 function normalizeOrder(item) {
   const amount = Number(item.amount ?? 0);
   const title = String(item.productName || "");
+  const isDataOrder = title.includes("购买数据") || title.includes("管理员授权购买");
   const isTaskOrder =
-    amount >= 0 ||
+    (!isDataOrder && amount >= 0) ||
     title.includes("任务结算支出") ||
     title.includes("任务结算收入") ||
     title.includes("承接任务记录") ||
-    (title.includes("任务") && !title.includes("购买数据"));
+    (title.includes("任务") && !title.includes("购买数据") && !title.includes("管理员授权购买"));
   const type = isTaskOrder ? "数据定制" : "数据购买";
   const productId = Number(item.productId ?? 0);
   const targetPath =
@@ -162,10 +166,6 @@ function openOrderDetail(order) {
   router.push(order.targetPath);
 }
 
-function onAvatarError(event) {
-  event.target.src = "/img/avatar.png";
-}
-
 function goEditProfile() {
   router.push(route.path.startsWith("/admin") ? "/admin/profile/edit" : "/user/profile/edit");
 }
@@ -183,7 +183,10 @@ function goNeedDetail(item) {
 function purchasedIdSet(orderList) {
   return new Set(
     orderList
-      .filter((item) => Number(item.amount ?? 0) < 0)
+      .filter((item) => {
+        const name = String(item?.productName ?? "");
+        return name.startsWith("购买数据:") || name.startsWith("管理员授权购买:");
+      })
       .map((item) => Number(item.productId))
       .filter((id) => Number.isFinite(id) && id > 0)
   );
@@ -378,7 +381,7 @@ function handleDownload(item) {
 <template>
   <section class="profile-page">
     <header class="profile-head">
-      <img class="avatar" :src="avatarUrl" alt="用户头像" @error="onAvatarError" />
+      <span class="avatar-initial">{{ userInitial }}</span>
       <div class="head-main">
         <h1>{{ userName }}</h1>
         <p class="intro">{{ userBio }}</p>
@@ -483,12 +486,18 @@ function handleDownload(item) {
   border: 1px solid #d9e4f5;
 }
 
-.avatar {
+.avatar-initial {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   width: 78px;
   height: 78px;
   border-radius: 50%;
-  object-fit: cover;
-  border: 2px solid #fff;
+  color: #eef4ff;
+  font-size: 34px;
+  font-weight: 700;
+  background: linear-gradient(135deg, #6f80ff, #5d63f0);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22);
 }
 
 .head-main h1 {
