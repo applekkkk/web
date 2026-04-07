@@ -122,24 +122,31 @@ function normalizeNeed(item) {
 function normalizeOrder(item) {
   const amount = Number(item.amount ?? 0);
   const title = String(item.productName || "");
+  const isAiOrder = title.startsWith("AI数据处理:");
   const isDataOrder = title.includes("购买数据") || title.includes("管理员授权购买");
   const isTaskOrder =
-    (!isDataOrder && amount >= 0) ||
+    !isAiOrder &&
+    ((!isDataOrder && amount >= 0) ||
     title.includes("任务结算支出") ||
     title.includes("任务结算收入") ||
     title.includes("承接任务记录") ||
-    (title.includes("任务") && !title.includes("购买数据") && !title.includes("管理员授权购买"));
-  const type = isTaskOrder ? "数据定制" : "数据购买";
+    (title.includes("任务") && !title.includes("购买数据") && !title.includes("管理员授权购买")));
+  const type = isAiOrder ? "AI处理" : isTaskOrder ? "数据定制" : "数据购买";
   const productId = Number(item.productId ?? 0);
-  const targetPath =
-    productId > 0 ? (isTaskOrder ? `/user/custom-bids/${productId}` : `/user/market/${productId}`) : "";
+  let targetPath = "";
+  if (isAiOrder) {
+    const no = encodeURIComponent(String(item.orderNo || item.id || ""));
+    if (no) targetPath = `/user/processing/result/${no}`;
+  } else if (productId > 0) {
+    targetPath = isTaskOrder ? `/user/custom-bids/${productId}` : `/user/market/${productId}`;
+  }
   return {
     id: item.id,
     orderNo: item.orderNo,
     productId,
     amount,
     type,
-    title: title || (isTaskOrder ? "数据定制订单" : "数据购买订单"),
+    title: title || (isAiOrder ? "AI处理订单" : isTaskOrder ? "数据定制订单" : "数据购买订单"),
     createdAt: formatTime(item.createdAt || ""),
     targetPath
   };

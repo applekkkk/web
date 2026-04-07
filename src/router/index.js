@@ -18,6 +18,7 @@ const userRoutes = [
   { path: "custom-bids/:id", name: "user-need-detail", component: () => import("../views/user/NeedDetailView.vue"), meta: { title: "任务详情" } },
   { path: "data-analysis", name: "user-data-analysis", component: () => import("../views/user/DataAnalysisHubView.vue"), meta: { title: "数据分析" } },
   { path: "processing", redirect: { name: "user-data-analysis", query: { tab: "ai" } } },
+  { path: "processing/result/:orderNo", name: "user-processing-result", component: () => import("../views/user/ProcessResultView.vue"), meta: { title: "AI处理结果" } },
   { path: "visualization", redirect: { name: "user-data-analysis", query: { tab: "viz" } } },
   { path: "appeals", name: "user-appeals", component: () => import("../views/user/AppealsView.vue"), meta: { title: "我的申诉" } },
   { path: "analytics", name: "user-analytics", component: () => import("../views/user/AnalyticsView.vue"), meta: { title: "分析展示" } },

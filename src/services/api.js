@@ -79,3 +79,9 @@ export const taskAppealApi = {
   forceSettle: (appealId) => request.put(`/task-appeals/${appealId}/force-settle`),
   forceRelease: (appealId) => request.put(`/task-appeals/${appealId}/force-release`)
 };
+
+export const aiProcessRecordApi = {
+  create: (data) => request.post("/ai-process-records", data),
+  getByOrderNo: (orderNo, userId) => request.get(`/ai-process-records/${encodeURIComponent(orderNo)}`, { params: { userId } }),
+  getUserList: (userId) => request.get(`/ai-process-records/user/${userId}`)
+};

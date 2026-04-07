@@ -2,11 +2,13 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref } from "vue";
 import { ElMessage } from "element-plus";
 import { marked } from "marked";
+import { useRouter } from "vue-router";
 import { useAuthStore } from "../../stores/auth";
-import { userApi } from "../../services/api";
+import { aiProcessRecordApi, orderApi } from "../../services/api";
 import { downloadProcessedCsv, runProcessTask } from "../../services/analyticsApi";
 
 const auth = useAuthStore();
+const router = useRouter();
 const running = ref(false);
 const progressPercent = ref(0);
 const selectedFile = ref(null);
@@ -19,6 +21,7 @@ let progressTimer = null;
 const pointsCost = ref(10);
 const reportMarkdown = ref("");
 const processPreview = ref({ columns: [], rows: [] });
+const latestOrderNo = ref("");
 
 const form = reactive({
   instruction: ""
@@ -151,20 +154,54 @@ async function handleRun() {
     await nextTick();
     syncReportPanelHeight();
 
-    const nextPoints = Math.max(0, Number(auth.user?.points ?? 0) - pointsCost.value);
-    const pointsRes = await userApi.updatePoints(userId.value, nextPoints);
-    if (pointsRes?.code !== 200) {
-      throw new Error(pointsRes?.message || "积分扣减失败");
+    const orderRes = await orderApi.create({
+      buyerId: userId.value,
+      productId: 0,
+      productName: `AI数据处理: ${selectedFile.value?.name || "CSV文件"}`,
+      amount: -Math.abs(pointsCost.value)
+    });
+    if (orderRes?.code !== 200) {
+      throw new Error(orderRes?.message || "创建AI处理订单失败");
     }
-    auth.updateProfile({ points: nextPoints });
 
-    ElMessage.success("处理完成");
+    let orderNo = String(orderRes?.data || "").trim();
+    if (!orderNo || orderNo === "交易成功") {
+      const listRes = await orderApi.getUserList(userId.value);
+      const list = Array.isArray(listRes?.data) ? listRes.data : [];
+      const latestAi = list.find((item) => String(item?.productName || "").startsWith("AI数据处理:"));
+      orderNo = String(latestAi?.orderNo || "").trim();
+    }
+    if (!orderNo) throw new Error("订单号为空，无法保存处理记录");
+    latestOrderNo.value = orderNo;
+
+    const recordRes = await aiProcessRecordApi.create({
+      orderNo,
+      userId: userId.value,
+      sourceFileName: selectedFile.value?.name || "",
+      instruction: form.instruction.trim(),
+      reportMarkdown: reportMarkdown.value,
+      previewJson: JSON.stringify(processPreview.value)
+    });
+    if (recordRes?.code !== 200) {
+      throw new Error(recordRes?.message || "保存AI处理记录失败");
+    }
+    await auth.refreshUser();
+
+    ElMessage.success("处理完成，订单已记录");
   } catch (error) {
     ElMessage.error(error?.message || "处理失败");
   } finally {
     running.value = false;
     finishProgress();
   }
+}
+
+function openLatestResult() {
+  if (!latestOrderNo.value) {
+    ElMessage.info("暂无可查看结果");
+    return;
+  }
+  router.push(`/user/processing/result/${encodeURIComponent(latestOrderNo.value)}`);
 }
 
 async function handleDownload() {
@@ -235,7 +272,10 @@ onBeforeUnmount(() => {
       <article ref="previewPanelRef" class="panel preview-panel">
         <header class="panel-header">
           <h3>数据预览</h3>
-          <button type="button" class="btn ghost small" @click="handleDownload">下载 CSV</button>
+          <div class="panel-actions">
+            <button type="button" class="btn ghost small" :disabled="!latestOrderNo" @click="openLatestResult">查看结果页</button>
+            <button type="button" class="btn ghost small" @click="handleDownload">下载 CSV</button>
+          </div>
         </header>
         <div class="table-scroll" v-if="processPreview.columns.length">
           <table>
@@ -367,6 +407,12 @@ textarea {
   border-bottom: 1px solid #e4ecf7;
 }
 
+.panel-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .panel h3 {
   margin: 0;
   font-size: 18px;
@@ -460,6 +506,11 @@ td {
 .btn.small {
   padding: 6px 10px;
   font-size: 12px;
+}
+
+.btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
 }
 
 .points-info {
