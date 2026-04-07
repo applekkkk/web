@@ -102,8 +102,18 @@ onBeforeUnmount(() => {
 <template>
   <div class="shell">
     <aside class="sidebar">
+      <div class="sidebar-decor" aria-hidden="true">
+        <span class="glow glow-a"></span>
+        <span class="glow glow-b"></span>
+        <span class="glow glow-c"></span>
+      </div>
       <h1>数据交易平台</h1>
       <p>{{ title }}</p>
+      <div class="sidebar-accent" aria-hidden="true">
+        <span></span>
+        <span></span>
+        <span></span>
+      </div>
       <div class="side-nav-wrap">
         <el-scrollbar class="side-nav-scrollbar">
           <nav class="side-nav">
@@ -138,8 +148,11 @@ onBeforeUnmount(() => {
 
     <section class="main">
       <header class="topbar">
-        <div>
-          <strong>{{ route.meta.title || "页面" }}</strong>
+        <div class="topbar-left">
+          <div class="title-row">
+            <strong>{{ route.meta.title || "页面" }}</strong>
+            <i class="title-dot" aria-hidden="true"></i>
+          </div>
           <div class="sub">欢迎，{{ auth.user?.name }}</div>
         </div>
 
@@ -196,6 +209,45 @@ onBeforeUnmount(() => {
   color: #eef4ff;
   padding: 28px 18px;
   background: linear-gradient(180deg, #0f2745, #1a3d66);
+  isolation: isolate;
+}
+
+.sidebar-decor {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: -1;
+  overflow: hidden;
+}
+
+.glow {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(0.5px);
+}
+
+.glow-a {
+  width: 160px;
+  height: 160px;
+  left: -46px;
+  top: -32px;
+  background: radial-gradient(circle at center, rgba(93, 138, 220, 0.42), rgba(93, 138, 220, 0));
+}
+
+.glow-b {
+  width: 190px;
+  height: 190px;
+  right: -84px;
+  top: 200px;
+  background: radial-gradient(circle at center, rgba(86, 194, 255, 0.24), rgba(86, 194, 255, 0));
+}
+
+.glow-c {
+  width: 220px;
+  height: 220px;
+  left: -90px;
+  bottom: -80px;
+  background: radial-gradient(circle at center, rgba(129, 111, 255, 0.18), rgba(129, 111, 255, 0));
 }
 
 .sidebar h1 {
@@ -207,6 +259,35 @@ onBeforeUnmount(() => {
   margin: 0 0 22px;
   font-size: 13px;
   color: #bfccdf;
+}
+
+.sidebar-accent {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 16px;
+}
+
+.sidebar-accent span {
+  display: inline-block;
+  border-radius: 999px;
+  background: rgba(220, 236, 255, 0.74);
+}
+
+.sidebar-accent span:nth-child(1) {
+  width: 20px;
+  height: 4px;
+}
+
+.sidebar-accent span:nth-child(2) {
+  width: 6px;
+  height: 6px;
+}
+
+.sidebar-accent span:nth-child(3) {
+  width: 10px;
+  height: 3px;
+  opacity: 0.8;
 }
 
 .side-nav-wrap {
@@ -223,6 +304,7 @@ onBeforeUnmount(() => {
 }
 
 .menu-item {
+  position: relative;
   display: inline-flex;
   align-items: center;
   gap: 10px;
@@ -239,6 +321,20 @@ onBeforeUnmount(() => {
   text-align: left;
   background: transparent;
   cursor: pointer;
+  transition: transform 0.16s ease, background-color 0.16s ease;
+}
+
+.menu-item::before {
+  content: "";
+  position: absolute;
+  left: -4px;
+  top: 50%;
+  width: 3px;
+  height: 0;
+  border-radius: 999px;
+  background: #84c5ff;
+  transform: translateY(-50%);
+  transition: height 0.16s ease;
 }
 
 .menu-icon {
@@ -251,6 +347,11 @@ onBeforeUnmount(() => {
 .menu-item.active,
 .menu-item:hover {
   background: rgba(255, 255, 255, 0.18);
+  transform: translateX(2px);
+}
+
+.menu-item.active::before {
+  height: 22px;
 }
 
 :deep(.side-nav-scrollbar .el-scrollbar__bar.is-vertical) {
@@ -332,7 +433,30 @@ onBeforeUnmount(() => {
   justify-content: space-between;
   padding: 14px 24px;
   border-bottom: 1px solid #dce4f2;
-  background: #fff;
+  background: linear-gradient(180deg, #ffffff, #f9fbff);
+}
+
+.topbar-left {
+  display: grid;
+  gap: 2px;
+}
+
+.title-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.title-row strong {
+  letter-spacing: 0.01em;
+}
+
+.title-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #5d84d9, #4fd0c6);
+  box-shadow: 0 0 0 4px rgba(79, 208, 198, 0.12);
 }
 
 .sub {

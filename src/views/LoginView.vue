@@ -164,175 +164,329 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="login-page">
-    <section class="login-card">
-      <h1>数据交易平台</h1>
-      <p v-if="!isRegister">账号登录</p>
-      <p v-else>新用户注册</p>
-      <form @submit.prevent="onSubmit">
-        <label>
-          <span>{{ isRegister ? "用户名" : "账号" }}</span>
-          <input
-            v-model.trim="form.account"
-            :placeholder="isRegister ? '请输入用户名' : '请输入账号'"
-          />
-        </label>
+    <div class="login-board">
+      <section class="login-visual">
+        <div class="visual-bg-grid"></div>
+        <span class="visual-badge">数据交易平台</span>
+        <h1>数据价值，加速流通</h1>
+        <p>数据交易、任务定制、智能分析，一站式完成。</p>
 
-        <label v-if="isRegister">
-          邮箱
-          <input v-model.trim="form.email" type="email" placeholder="请输入邮箱" />
-        </label>
+        <div class="visual-ornaments" aria-hidden="true">
+          <div class="orb orb-a"></div>
+          <div class="orb orb-b"></div>
+          <div class="orb orb-c"></div>
+          <div class="chip chip-main">AI</div>
+          <div class="chip chip-sub">DATA</div>
+        </div>
+      </section>
 
-        <label v-if="isRegister">
-          邮箱验证码
-          <div class="code-row">
-            <input v-model.trim="form.emailCode" placeholder="输入验证码" />
-            <button
-              class="code-btn"
-              type="button"
-              :disabled="codeCountdown > 0"
-              @click="sendRegisterCode"
-            >
-              {{ codeCountdown > 0 ? `${codeCountdown}s后重发` : "发送验证码" }}
+      <section class="login-panel">
+        <div class="login-card">
+          <h2>{{ isRegister ? "新用户注册" : "账号登录" }}</h2>
+
+          <form @submit.prevent="onSubmit">
+            <label>
+              <span class="label-text">{{ isRegister ? "用户名" : "账号" }}</span>
+              <input v-model.trim="form.account" :placeholder="isRegister ? '请输入用户名' : '请输入账号'" />
+            </label>
+
+            <label v-if="isRegister">
+              <span class="label-text">邮箱</span>
+              <input v-model.trim="form.email" type="email" placeholder="请输入邮箱" />
+            </label>
+
+            <label v-if="isRegister">
+              <span class="label-text">邮箱验证码</span>
+              <div class="code-row">
+                <input v-model.trim="form.emailCode" placeholder="输入验证码" />
+                <button class="code-btn" type="button" :disabled="codeCountdown > 0" @click="sendRegisterCode">
+                  {{ codeCountdown > 0 ? `${codeCountdown}s后重发` : "发送验证码" }}
+                </button>
+              </div>
+            </label>
+
+            <label>
+              <span class="label-text">密码</span>
+              <div class="password-field">
+                <input
+                  v-model.trim="form.password"
+                  :type="showPassword ? 'text' : 'password'"
+                  placeholder="请输入密码"
+                />
+                <button
+                  type="button"
+                  class="eye-btn"
+                  :aria-label="showPassword ? '隐藏密码' : '显示密码'"
+                  @click="showPassword = !showPassword"
+                >
+                  <el-icon>
+                    <View v-if="showPassword" />
+                    <Hide v-else />
+                  </el-icon>
+                </button>
+              </div>
+            </label>
+
+            <label v-if="isRegister">
+              <span class="label-text">确认密码</span>
+              <div class="password-field">
+                <input
+                  v-model.trim="form.confirmPassword"
+                  :type="showConfirmPassword ? 'text' : 'password'"
+                  placeholder="请再次输入密码"
+                />
+                <button
+                  type="button"
+                  class="eye-btn"
+                  :aria-label="showConfirmPassword ? '隐藏密码' : '显示密码'"
+                  @click="showConfirmPassword = !showConfirmPassword"
+                >
+                  <el-icon>
+                    <View v-if="showConfirmPassword" />
+                    <Hide v-else />
+                  </el-icon>
+                </button>
+              </div>
+            </label>
+
+            <button :disabled="loading" type="submit" class="submit-btn">
+              {{ loading ? (isRegister ? "注册中..." : "登录中...") : isRegister ? "注册" : "登录" }}
             </button>
-          </div>
-        </label>
+          </form>
 
-        <label>
-          密码
-          <div class="password-field">
-            <input
-              v-model.trim="form.password"
-              :type="showPassword ? 'text' : 'password'"
-              :placeholder="isRegister ? '请输入密码' : '请输入密码'"
-            />
-            <button
-              type="button"
-              class="eye-btn"
-              :aria-label="showPassword ? '隐藏密码' : '显示密码'"
-              @click="showPassword = !showPassword"
-            >
-              <el-icon>
-                <View v-if="showPassword" />
-                <Hide v-else />
-              </el-icon>
-            </button>
-          </div>
-        </label>
+          <button class="link-btn" type="button" @click="toggleMode">
+            {{ isRegister ? "已有账号？去登录" : "没有账号？去注册" }}
+          </button>
 
-        <label v-if="isRegister">
-          确认密码
-          <div class="password-field">
-            <input
-              v-model.trim="form.confirmPassword"
-              :type="showConfirmPassword ? 'text' : 'password'"
-              placeholder="请再次输入密码"
-            />
-            <button
-              type="button"
-              class="eye-btn"
-              :aria-label="showConfirmPassword ? '隐藏密码' : '显示密码'"
-              @click="showConfirmPassword = !showConfirmPassword"
-            >
-              <el-icon>
-                <View v-if="showConfirmPassword" />
-                <Hide v-else />
-              </el-icon>
-            </button>
-          </div>
-        </label>
-
-        <button :disabled="loading" type="submit">
-          {{ loading ? (isRegister ? "注册中..." : "登录中...") : (isRegister ? "注册" : "登录") }}
-        </button>
-      </form>
-
-      <button class="link-btn" type="button" @click="toggleMode">
-        {{ isRegister ? "已有账号？去登录" : "没有账号？去注册" }}
-      </button>
-
-      <div v-if="error" class="error">{{ error }}</div>
-    </section>
+          <div v-if="error" class="error">{{ error }}</div>
+        </div>
+      </section>
+    </div>
   </div>
 </template>
 
 <style scoped>
 .login-page {
+  min-height: 100vh;
   display: grid;
   place-items: center;
-  min-height: 100vh;
-  padding: 16px;
+  padding: 28px;
+  background: radial-gradient(circle at 20% 12%, #dfe8ff 0%, #edf2ff 42%, #f2f5fb 100%);
+}
+
+.login-board {
+  width: min(1160px, 100%);
+  min-height: min(760px, calc(100vh - 56px));
+  border-radius: 26px;
+  border: 1px solid #dbe5f5;
+  background: #f4f7ff;
+  box-shadow: 0 24px 64px rgba(37, 63, 117, 0.14);
+  display: grid;
+  grid-template-columns: 1.18fr 0.82fr;
+  overflow: hidden;
+}
+
+.login-visual {
+  position: relative;
+  padding: 72px 64px;
+  overflow: hidden;
+  background: linear-gradient(180deg, rgba(236, 242, 255, 0.88), rgba(227, 236, 255, 0.95));
+}
+
+.visual-bg-grid {
+  position: absolute;
+  inset: 0;
+  background-image: linear-gradient(to right, rgba(76, 107, 178, 0.08) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(76, 107, 178, 0.08) 1px, transparent 1px);
+  background-size: 88px 88px;
+  pointer-events: none;
+}
+
+.visual-badge,
+.login-visual h1,
+.login-visual p,
+.visual-ornaments {
+  position: relative;
+  z-index: 1;
+}
+
+.visual-badge {
+  display: inline-flex;
+  align-items: center;
+  height: 36px;
+  border-radius: 999px;
+  background: rgba(55, 96, 186, 0.12);
+  color: #335d9a;
+  border: 1px solid rgba(68, 109, 201, 0.2);
+  padding: 0 16px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.login-visual h1 {
+  margin: 20px 0 0;
+  font-size: clamp(30px, 4vw, 56px);
+  line-height: 1.1;
+  letter-spacing: 0.01em;
+  color: #18345d;
+  max-width: 560px;
+}
+
+.login-visual p {
+  margin: 22px 0 0;
+  font-size: 22px;
+  line-height: 1.5;
+  color: #3f5d8c;
+  max-width: 540px;
+}
+
+.visual-ornaments {
+  margin-top: 58px;
+  height: 320px;
+  position: relative;
+}
+
+.orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(0.2px);
+}
+
+.orb-a {
+  width: 280px;
+  height: 280px;
+  left: 24px;
+  top: 16px;
+  background: radial-gradient(circle at 35% 35%, rgba(129, 111, 255, 0.7), rgba(129, 111, 255, 0.06));
+}
+
+.orb-b {
+  width: 220px;
+  height: 220px;
+  right: 60px;
+  top: 52px;
+  background: radial-gradient(circle at 30% 30%, rgba(80, 166, 255, 0.58), rgba(80, 166, 255, 0.08));
+}
+
+.orb-c {
+  width: 170px;
+  height: 170px;
+  left: 220px;
+  top: 154px;
+  background: radial-gradient(circle at 30% 30%, rgba(70, 225, 193, 0.45), rgba(70, 225, 193, 0.08));
+}
+
+.chip {
+  position: absolute;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 18px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: #f6fbff;
+}
+
+.chip-main {
+  left: 146px;
+  top: 94px;
+  width: 170px;
+  height: 108px;
+  font-size: 38px;
+  background: linear-gradient(135deg, #5f84ff, #6f56df);
+  box-shadow: 0 18px 30px rgba(80, 95, 172, 0.35);
+}
+
+.chip-sub {
+  left: 342px;
+  top: 154px;
+  width: 150px;
+  height: 76px;
+  font-size: 28px;
+  background: linear-gradient(135deg, #4099f5, #50d1ff);
+  box-shadow: 0 16px 24px rgba(63, 145, 225, 0.3);
+}
+
+.login-panel {
+  display: grid;
+  place-items: center;
+  padding: 28px;
+  background: linear-gradient(180deg, rgba(244, 247, 255, 0.72), rgba(255, 255, 255, 0.92));
 }
 
 .login-card {
-  width: 100%;
-  max-width: 420px;
-  border: 1px solid #dce3ef;
-  border-radius: 16px;
-  padding: 26px;
-  background: rgba(255, 255, 255, 0.95);
-  box-shadow: 0 12px 35px rgba(28, 54, 92, 0.12);
+  width: min(430px, 100%);
+  border-radius: 18px;
+  border: 1px solid #d6e0f1;
+  background: #fff;
+  padding: 30px 26px 24px;
+  box-shadow: 0 14px 34px rgba(35, 56, 93, 0.13);
 }
 
-h1 {
-  margin: 0;
-  font-size: 24px;
-}
-
-p {
-  margin: 8px 0 18px;
-  color: #6b7f99;
+.login-card h2 {
+  margin: 0 0 20px;
+  text-align: center;
+  color: #1f3659;
+  font-size: 34px;
+  font-weight: 700;
 }
 
 label {
   display: block;
   margin-bottom: 14px;
-  font-size: 13px;
+}
+
+.label-text {
+  display: inline-block;
+  color: #3d5680;
+  font-size: 14px;
+  margin-bottom: 6px;
 }
 
 input {
   width: 100%;
-  margin-top: 6px;
-  border: 1px solid #cbd7eb;
-  border-radius: 8px;
-  padding: 10px 12px;
+  border: 1px solid #c6d5ef;
+  border-radius: 10px;
+  padding: 11px 12px;
+  font-size: 14px;
+  color: #1e3558;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+input:focus {
+  outline: none;
+  border-color: #4e84da;
+  box-shadow: 0 0 0 3px rgba(76, 129, 216, 0.14);
 }
 
 .code-row {
   display: grid;
   grid-template-columns: 1fr auto;
   gap: 10px;
-  align-items: center;
-  margin-top: 6px;
-}
-
-.code-row input {
-  margin-top: 0;
 }
 
 .code-btn {
   width: auto;
-  white-space: nowrap;
-  border: 1px solid #c9d7ef;
-  border-radius: 8px;
-  padding: 10px 12px;
-  background: #fff;
-  color: #2d5e97;
+  border: 1px solid #c7d6ef;
+  border-radius: 10px;
+  padding: 0 12px;
+  min-width: 108px;
+  background: #f8fbff;
+  color: #3a6097;
   cursor: pointer;
+  font-size: 13px;
 }
 
 .code-btn:disabled {
-  color: #8fa4c2;
+  color: #8ea5c6;
   cursor: not-allowed;
 }
 
 .password-field {
   position: relative;
-  width: 100%;
-  margin-top: 6px;
 }
 
 .password-field input {
-  margin-top: 0;
   padding-right: 42px;
 }
 
@@ -345,25 +499,25 @@ input {
   border: none;
   background: transparent;
   cursor: pointer;
-  padding: 0;
-  color: #6b7f99;
+  color: #6f86a8;
   display: inline-flex;
   align-items: center;
   justify-content: center;
 }
 
-button {
+.submit-btn {
   width: 100%;
   border: none;
   border-radius: 10px;
   padding: 11px 14px;
+  margin-top: 4px;
   color: #fff;
-  font-size: 14px;
-  background: #24558f;
+  font-size: 15px;
+  background: linear-gradient(135deg, #3f7ee6, #2f66c6);
   cursor: pointer;
 }
 
-button:disabled {
+.submit-btn:disabled {
   opacity: 0.7;
   cursor: not-allowed;
 }
@@ -383,5 +537,61 @@ button:disabled {
   margin-top: 10px;
   color: #b42318;
   font-size: 13px;
+}
+
+@media (max-width: 980px) {
+  .login-page {
+    padding: 14px;
+  }
+
+  .login-board {
+    min-height: auto;
+    grid-template-columns: 1fr;
+  }
+
+  .login-visual {
+    padding: 34px 24px;
+  }
+
+  .login-visual p {
+    font-size: 16px;
+    max-width: 100%;
+  }
+
+  .visual-ornaments {
+    height: 170px;
+    margin-top: 24px;
+  }
+
+  .orb-a,
+  .orb-b,
+  .orb-c {
+    transform: scale(0.7);
+    transform-origin: left top;
+  }
+
+  .chip-main {
+    left: 92px;
+    top: 62px;
+    width: 120px;
+    height: 72px;
+    font-size: 24px;
+  }
+
+  .chip-sub {
+    left: 228px;
+    top: 104px;
+    width: 100px;
+    height: 56px;
+    font-size: 20px;
+  }
+
+  .login-panel {
+    padding: 16px;
+  }
+
+  .login-card h2 {
+    font-size: 28px;
+  }
 }
 </style>
