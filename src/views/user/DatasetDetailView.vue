@@ -90,6 +90,8 @@ function isOwnProduct(item) {
 
 function hasPurchased(productId, orderList) {
   return orderList.some((item) => {
+    const active = Number(item?.status ?? 1) === 1;
+    if (!active) return false;
     const pid = Number(item?.productId ?? 0);
     const productName = String(item?.productName ?? "");
     const byDataOrder = productName.startsWith("购买数据:");
@@ -403,7 +405,7 @@ async function handleAdminPurchaseChange(next) {
     const res = await orderApi.adminSetPurchaseStatus(appealBuyerId.value, dataset.value.id, purchased);
     if (res?.code !== 200) throw new Error(res?.message || "状态修改失败");
     await fetchDataset();
-    ElMessage.success("购买状态已更新");
+    ElMessage.success(res?.message || "购买状态已更新");
   } catch (error) {
     adminPurchaseStatus.value = dataset.value?.purchased ? "purchased" : "unpurchased";
     ElMessage.error(error?.message || "状态修改失败");

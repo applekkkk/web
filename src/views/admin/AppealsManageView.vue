@@ -174,7 +174,7 @@ watch([keyword, statusFilter, typeFilter], () => {
             <th>诉求</th>
             <th>证据说明</th>
             <th>证据图片</th>
-            <th>状态</th>
+            <th class="status-col">状态</th>
             <th>时间</th>
           </tr>
         </thead>
@@ -197,7 +197,7 @@ watch([keyword, statusFilter, typeFilter], () => {
               <img v-if="item.evidenceImage" class="evidence-img" :src="imageUrl(item.evidenceImage)" alt="证据图片" />
               <span v-else>-</span>
             </td>
-            <td>
+            <td class="status-col">
               <span class="status" :class="{ done: Number(item.status) === 1 }">
                 {{ statusText(item.status) }}
               </span>
@@ -263,7 +263,7 @@ h2 {
 table {
   width: 100%;
   border-collapse: collapse;
-  min-width: 1100px;
+  min-width: 1180px;
 }
 
 th,
@@ -325,17 +325,27 @@ td {
 }
 
 .status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   border: 1px solid #9fc2ef;
   border-radius: 999px;
   padding: 2px 10px;
   color: #2f5a90;
   background: rgba(47, 90, 144, 0.12);
+  white-space: nowrap;
 }
 
 .status.done {
   border-color: #7bd69d;
   color: #2d8a4d;
   background: rgba(58, 170, 93, 0.12);
+}
+
+.status-col {
+  width: 100px;
+  min-width: 100px;
+  white-space: nowrap;
 }
 
 .pager-row {

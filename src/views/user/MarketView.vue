@@ -137,6 +137,7 @@ async function fetchPurchasedIds() {
     const set = new Set(
       (Array.isArray(res?.data) ? res.data : [])
         .filter((item) => {
+          if (Number(item?.status ?? 1) !== 1) return false;
           const name = String(item?.productName ?? "");
           return name.startsWith("购买数据:") || name.startsWith("管理员授权购买:");
         })

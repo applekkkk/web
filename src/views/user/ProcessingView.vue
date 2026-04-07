@@ -2,13 +2,11 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref } from "vue";
 import { ElMessage } from "element-plus";
 import { marked } from "marked";
-import { useRouter } from "vue-router";
 import { useAuthStore } from "../../stores/auth";
 import { aiProcessRecordApi, orderApi } from "../../services/api";
-import { downloadProcessedCsv, runProcessTask } from "../../services/analyticsApi";
+import { downloadProcessedCsv, downloadProcessedCsvByName, runProcessTask } from "../../services/analyticsApi";
 
 const auth = useAuthStore();
-const router = useRouter();
 const running = ref(false);
 const progressPercent = ref(0);
 const selectedFile = ref(null);
@@ -21,7 +19,7 @@ let progressTimer = null;
 const pointsCost = ref(10);
 const reportMarkdown = ref("");
 const processPreview = ref({ columns: [], rows: [] });
-const latestOrderNo = ref("");
+const latestResultFileName = ref("");
 
 const form = reactive({
   instruction: ""
@@ -148,6 +146,9 @@ async function handleRun() {
     const report = payload.report ?? payload.markdown ?? payload.data?.report ?? "";
     const preview =
       payload.preview ?? payload.table ?? payload.rows ?? payload.data?.preview ?? payload.data?.rows ?? [];
+    latestResultFileName.value = String(
+      payload.result_file_name ?? payload.resultFileName ?? payload.data?.result_file_name ?? payload.data?.resultFileName ?? ""
+    );
 
     reportMarkdown.value = String(report || "");
     processPreview.value = normalizePreview(preview);
@@ -172,15 +173,14 @@ async function handleRun() {
       orderNo = String(latestAi?.orderNo || "").trim();
     }
     if (!orderNo) throw new Error("订单号为空，无法保存处理记录");
-    latestOrderNo.value = orderNo;
-
     const recordRes = await aiProcessRecordApi.create({
       orderNo,
       userId: userId.value,
       sourceFileName: selectedFile.value?.name || "",
       instruction: form.instruction.trim(),
       reportMarkdown: reportMarkdown.value,
-      previewJson: JSON.stringify(processPreview.value)
+      previewJson: JSON.stringify(processPreview.value),
+      resultFileName: latestResultFileName.value || `${userId.value}.csv`
     });
     if (recordRes?.code !== 200) {
       throw new Error(recordRes?.message || "保存AI处理记录失败");
@@ -196,14 +196,6 @@ async function handleRun() {
   }
 }
 
-function openLatestResult() {
-  if (!latestOrderNo.value) {
-    ElMessage.info("暂无可查看结果");
-    return;
-  }
-  router.push(`/user/processing/result/${encodeURIComponent(latestOrderNo.value)}`);
-}
-
 async function handleDownload() {
   if (!userId.value) {
     ElMessage.warning("未获取到用户信息，请重新登录");
@@ -211,12 +203,14 @@ async function handleDownload() {
   }
 
   try {
-    const csvData = await downloadProcessedCsv(userId.value);
+    const csvData = latestResultFileName.value
+      ? await downloadProcessedCsvByName(latestResultFileName.value)
+      : await downloadProcessedCsv(userId.value);
     const blob = csvData instanceof Blob ? csvData : new Blob([csvData], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = "analytics_processed.csv";
+    link.download = latestResultFileName.value || "analytics_processed.csv";
     document.body.appendChild(link);
     link.click();
     link.remove();
@@ -273,7 +267,6 @@ onBeforeUnmount(() => {
         <header class="panel-header">
           <h3>数据预览</h3>
           <div class="panel-actions">
-            <button type="button" class="btn ghost small" :disabled="!latestOrderNo" @click="openLatestResult">查看结果页</button>
             <button type="button" class="btn ghost small" @click="handleDownload">下载 CSV</button>
           </div>
         </header>

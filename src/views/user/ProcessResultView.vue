@@ -4,6 +4,7 @@ import { useRoute, useRouter } from "vue-router";
 import { ElMessage } from "element-plus";
 import { marked } from "marked";
 import { aiProcessRecordApi } from "../../services/api";
+import { downloadProcessedCsv, downloadProcessedCsvByName } from "../../services/analyticsApi";
 import { useAuthStore } from "../../stores/auth";
 
 const route = useRoute();
@@ -65,6 +66,30 @@ async function loadRecord() {
   }
 }
 
+async function handleDownloadCsv() {
+  const uid = Number(record.value?.userId || auth.user?.id || 0);
+  if (!uid) {
+    ElMessage.warning("未获取到用户信息，请重新登录");
+    return;
+  }
+  try {
+    const fileName = String(record.value?.resultFileName || "").trim();
+    const csvData = fileName ? await downloadProcessedCsvByName(fileName) : await downloadProcessedCsv(uid);
+    const blob = csvData instanceof Blob ? csvData : new Blob([csvData], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = fileName || `${uid}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+    ElMessage.success("下载成功");
+  } catch (error) {
+    ElMessage.error(error?.message || "下载失败");
+  }
+}
+
 onMounted(loadRecord);
 </script>
 
@@ -82,6 +107,7 @@ onMounted(loadRecord);
       <article class="panel">
         <header class="panel-head">
           <h3>数据预览</h3>
+          <button type="button" class="download-btn" @click="handleDownloadCsv">下载 CSV</button>
         </header>
         <div class="table-wrap" v-if="previewData.columns.length">
           <table>
@@ -181,6 +207,15 @@ onMounted(loadRecord);
   font-size: 12px;
 }
 
+.download-btn {
+  border: 1px solid #c7d7ef;
+  border-radius: 999px;
+  padding: 6px 12px;
+  color: #2f5a90;
+  background: #fff;
+  cursor: pointer;
+}
+
 .table-wrap {
   max-height: 520px;
   overflow: auto;
@@ -219,4 +254,3 @@ td {
   }
 }
 </style>
-

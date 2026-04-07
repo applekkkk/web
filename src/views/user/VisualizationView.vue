@@ -96,34 +96,29 @@ async function handleRender() {
   resetResults();
 
   try {
-    const [imgResult, statsResult, centralityResult, commResult] = await Promise.allSettled([
-      renderNetworkVisualization({
-        file: selectedFile.value,
-        userId: userId.value || undefined,
-        options: {
-          layout: form.layout,
-          theme: form.theme,
-          description: form.description.trim(),
-        },
-      }),
+    const imgResult = await renderNetworkVisualization({
+      file: selectedFile.value,
+      userId: userId.value || undefined,
+      options: {
+        layout: form.layout,
+        theme: form.theme,
+        description: form.description.trim(),
+      },
+    });
+    imageUrl.value = imgResult.imageUrl;
+    imageObjectUrl.value = Boolean(imgResult.isObjectUrl);
+    activeTab.value = "image";
+    ElMessage.success("可视化已生成，统计信息正在补充");
+
+    Promise.allSettled([
       getNetworkStats({ file: selectedFile.value }),
       getNetworkCentrality({ file: selectedFile.value, top: 15 }),
       getNetworkCommunities({ file: selectedFile.value }),
-    ]);
-
-    if (imgResult.status === "fulfilled") {
-      imageUrl.value = imgResult.value.imageUrl;
-      imageObjectUrl.value = Boolean(imgResult.value.isObjectUrl);
-    } else {
-      throw new Error(imgResult.reason?.message || "图片生成失败");
-    }
-
-    if (statsResult.status === "fulfilled") stats.value = statsResult.value;
-    if (centralityResult.status === "fulfilled") centrality.value = centralityResult.value;
-    if (commResult.status === "fulfilled") communities.value = commResult.value;
-
-    activeTab.value = "image";
-    ElMessage.success("分析完成");
+    ]).then(([statsResult, centralityResult, commResult]) => {
+      if (statsResult.status === "fulfilled") stats.value = statsResult.value;
+      if (centralityResult.status === "fulfilled") centrality.value = centralityResult.value;
+      if (commResult.status === "fulfilled") communities.value = commResult.value;
+    });
   } catch (err) {
     ElMessage.error(err?.message || "请求失败，请稍后重试");
   } finally {

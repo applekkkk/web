@@ -123,7 +123,7 @@ function normalizeOrder(item) {
   const amount = Number(item.amount ?? 0);
   const title = String(item.productName || "");
   const isAiOrder = title.startsWith("AI数据处理:");
-  const isDataOrder = title.includes("购买数据") || title.includes("管理员授权购买");
+  const isDataOrder = title.includes("购买数据") || title.includes("管理员授权购买") || title.includes("管理员申诉退款");
   const isTaskOrder =
     !isAiOrder &&
     ((!isDataOrder && amount >= 0) ||
@@ -232,6 +232,7 @@ function purchasedIdSet(orderList) {
   return new Set(
     orderList
       .filter((item) => {
+        if (Number(item?.status ?? 1) !== 1) return false;
         const name = String(item?.productName ?? "");
         return name.startsWith("购买数据:") || name.startsWith("管理员授权购买:");
       })

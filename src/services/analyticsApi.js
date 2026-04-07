@@ -86,3 +86,17 @@ export async function downloadProcessedCsv(userId) {
     throw normalizeError(error);
   }
 }
+
+export async function downloadProcessedCsvByName(fileName) {
+  try {
+    const formData = new FormData();
+    formData.append("file_name", String(fileName || ""));
+    const response = await analyticsRequest.post("/download/by-name", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+      responseType: "blob"
+    });
+    return response.data;
+  } catch (error) {
+    throw normalizeError(error);
+  }
+}

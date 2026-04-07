@@ -8,6 +8,7 @@ import { useAuthStore } from "../../stores/auth";
 
 const route = useRoute();
 const auth = useAuthStore();
+const GRAPH_CATEGORY = "网络数据（图数据）";
 
 const task = ref(null);
 const loading = ref(false);
@@ -67,6 +68,11 @@ const hasAcceptor = computed(() => Number(task.value?.acceptorId ?? 0) > 0);
 const canAccept = computed(() => statusCode.value === 0 && !isPublisher.value && !isAdminView.value);
 const canSubmitDelivery = computed(() => statusCode.value === 1 && isAcceptor.value && !isAdminView.value);
 const canConfirmComplete = computed(() => statusCode.value === 2 && isPublisher.value && !isAdminView.value);
+const isGraphTask = computed(() => String(task.value?.category || "").trim() === GRAPH_CATEGORY);
+const deliveryFileAccept = computed(() =>
+  isGraphTask.value ? ".net,application/octet-stream,text/plain" : ".csv,text/csv"
+);
+const expectedDeliverySuffix = computed(() => (isGraphTask.value ? ".net" : ".csv"));
 const canAppeal = computed(
   () => !isAdminView.value && (statusCode.value === 1 || statusCode.value === 2) && (isPublisher.value || isAcceptor.value)
 );
@@ -242,7 +248,19 @@ function chooseDeliveryFile() {
 
 function onDeliveryFileChange(event) {
   const file = event.target.files?.[0];
+  if (file && !isValidDeliveryFile(file.name)) {
+    ElMessage.warning(`当前任务仅支持上传 ${expectedDeliverySuffix.value} 文件`);
+    if (deliveryInputRef.value) deliveryInputRef.value.value = "";
+    deliveryFile.value = null;
+    return;
+  }
   deliveryFile.value = file || null;
+}
+
+function isValidDeliveryFile(fileName) {
+  const lower = String(fileName || "").toLowerCase();
+  if (isGraphTask.value) return lower.endsWith(".net");
+  return lower.endsWith(".csv");
 }
 
 function chooseEvidenceImage() {
@@ -278,6 +296,10 @@ async function handleSubmitDelivery() {
   if (!task.value || !canSubmitDelivery.value) return;
   if (!deliveryFile.value) {
     ElMessage.warning("请先选择交付文件");
+    return;
+  }
+  if (!isValidDeliveryFile(deliveryFile.value.name)) {
+    ElMessage.warning(`文件格式不正确，请上传 ${expectedDeliverySuffix.value} 文件`);
     return;
   }
   submittingDelivery.value = true;
@@ -468,9 +490,10 @@ watch(
     </section>
 
     <section v-if="canSubmitDelivery" class="delivery-panel">
-      <input ref="deliveryInputRef" type="file" class="hidden-file" accept=".csv,text/csv" @change="onDeliveryFileChange" />
+      <input ref="deliveryInputRef" type="file" class="hidden-file" :accept="deliveryFileAccept" @change="onDeliveryFileChange" />
       <button type="button" class="small-btn" @click="chooseDeliveryFile">选择交付文件</button>
       <span class="file-name">{{ deliveryFile ? deliveryFile.name : "未选择文件" }}</span>
+      <span class="file-name">（仅支持 {{ expectedDeliverySuffix }}）</span>
       <button type="button" class="small-btn primary" :disabled="submittingDelivery" @click="handleSubmitDelivery">
         {{ submittingDelivery ? "提交中..." : "提交交付" }}
       </button>
