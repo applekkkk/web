@@ -1,5 +1,5 @@
 ﻿<script setup>
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import { ElMessage } from "element-plus";
 import { taskAppealApi } from "../../services/api";
@@ -7,6 +7,9 @@ import { taskAppealApi } from "../../services/api";
 const router = useRouter();
 const loading = ref(false);
 const list = ref([]);
+const keyword = ref("");
+const statusFilter = ref("");
+const typeFilter = ref("");
 
 const pageSizeOptions = [10, 20, 30, 50];
 const pageSize = ref(10);
@@ -18,6 +21,14 @@ function formatTime(value) {
 
 function statusText(status) {
   return Number(status ?? 0) === 1 ? "已处理" : "待处理";
+}
+
+function resolveAppealType(item) {
+  const targetType = String(item?.targetType ?? item?.target_type ?? "").toUpperCase();
+  if (targetType === "DATA") return "数据";
+  if (targetType === "TASK") return "任务";
+  const role = String(item?.appellantRole ?? item?.appellant_role ?? "");
+  return role.includes("购买") ? "数据" : "任务";
 }
 
 function normalize(item) {
@@ -32,13 +43,46 @@ function normalize(item) {
     evidenceText: item.evidenceText ?? item.evidence_text ?? "",
     evidenceImage: item.evidenceImage ?? item.evidence_image ?? "",
     status: Number(item.status ?? 0),
+    appealType: resolveAppealType(item),
     createdAt: formatTime(item.createdAt ?? item.created_at ?? "")
   };
 }
 
+const filteredList = computed(() => {
+  const k = keyword.value.trim().toLowerCase();
+  let rows = list.value;
+
+  if (k) {
+    rows = rows.filter((item) => {
+      const idText = String(item.id ?? "");
+      const title = String(item.requestTitle ?? "").toLowerCase();
+      const name = String(item.appellantName ?? "").toLowerCase();
+      const claim = String(item.claimText ?? "").toLowerCase();
+      const evidence = String(item.evidenceText ?? "").toLowerCase();
+      return (
+        idText.includes(k) ||
+        title.includes(k) ||
+        name.includes(k) ||
+        claim.includes(k) ||
+        evidence.includes(k)
+      );
+    });
+  }
+
+  if (statusFilter.value !== "") {
+    rows = rows.filter((item) => String(item.status) === String(statusFilter.value));
+  }
+
+  if (typeFilter.value) {
+    rows = rows.filter((item) => item.appealType === typeFilter.value);
+  }
+
+  return rows;
+});
+
 const pagedList = computed(() => {
   const start = (currentPage.value - 1) * pageSize.value;
-  return list.value.slice(start, start + pageSize.value);
+  return filteredList.value.slice(start, start + pageSize.value);
 });
 
 function imageUrl(name) {
@@ -72,11 +116,12 @@ function handleCurrentChange(val) {
 function openAppealDetail(item) {
   const targetId = Number(item?.requestId ?? 0);
   if (!targetId) return;
-  const isDataAppeal = String(item?.appellantRole || "").includes("购买");
+  const isDataAppeal = item?.appealType === "数据";
   const path = isDataAppeal ? `/admin/review/${targetId}` : `/admin/appeals/task/${targetId}`;
   router.push({
     path,
     query: {
+      mode: "appeal",
       appealId: String(item.id || ""),
       buyerId: isDataAppeal ? String(item.appellantId ?? "") : undefined
     }
@@ -84,19 +129,46 @@ function openAppealDetail(item) {
 }
 
 onMounted(fetchList);
+
+watch([keyword, statusFilter, typeFilter], () => {
+  currentPage.value = 1;
+});
 </script>
 
 <template>
   <section class="appeals-page card" v-loading="loading">
-    <h2>申诉处理</h2>
+    <div class="toolbar">
+      <input v-model="keyword" type="text" placeholder="搜索申诉ID/任务/用户/诉求" />
+      <el-select
+        v-model="statusFilter"
+        placeholder="状态筛选"
+        clearable
+        size="default"
+        style="width: 130px; margin-left: 12px"
+      >
+        <el-option label="待处理" value="0" />
+        <el-option label="已处理" value="1" />
+      </el-select>
+      <el-select
+        v-model="typeFilter"
+        placeholder="申诉类型"
+        clearable
+        size="default"
+        style="width: 130px; margin-left: 12px"
+      >
+        <el-option label="数据" value="数据" />
+        <el-option label="任务" value="任务" />
+      </el-select>
+    </div>
 
-    <p v-if="list.length === 0" class="empty">暂无申诉记录</p>
+    <p v-if="filteredList.length === 0" class="empty">暂无申诉记录</p>
 
     <div v-else class="table-wrap">
       <table>
         <thead>
           <tr>
             <th>ID</th>
+            <th>类型</th>
             <th>任务/数据</th>
             <th>申诉人</th>
             <th>诉求</th>
@@ -109,6 +181,7 @@ onMounted(fetchList);
         <tbody>
           <tr v-for="item in pagedList" :key="item.id" class="click-row" @click="openAppealDetail(item)">
             <td>{{ item.id }}</td>
+            <td>{{ item.appealType }}</td>
             <td>
               <div class="task-cell">
                 <button type="button" class="task-link" @click.stop="openAppealDetail(item)">
@@ -135,14 +208,14 @@ onMounted(fetchList);
       </table>
     </div>
 
-    <div v-if="list.length > 0" class="pager-row">
+    <div v-if="filteredList.length > 0" class="pager-row">
       <el-pagination
         v-model:current-page="currentPage"
         v-model:page-size="pageSize"
         :page-sizes="pageSizeOptions"
         :background="true"
         layout="total, sizes, prev, pager, next, jumper"
-        :total="list.length"
+        :total="filteredList.length"
         @size-change="handleSizeChange"
         @current-change="handleCurrentChange"
       />
@@ -167,6 +240,19 @@ h2 {
 .empty {
   margin: 0;
   color: #7a8ca6;
+}
+
+.toolbar {
+  margin-bottom: 12px;
+}
+
+.toolbar input {
+  width: 320px;
+  max-width: 100%;
+  border: 1px solid #d5deeb;
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 13px;
 }
 
 .table-wrap {

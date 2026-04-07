@@ -28,6 +28,7 @@ const adminUpdatingStatus = ref(false);
 const adminStatus = ref(0);
 const processingAppeal = ref(false);
 const appealStatus = ref(0);
+const appealDetail = ref(null);
 
 function normalizeRequest(item) {
   return {
@@ -54,7 +55,10 @@ function normalizeRequest(item) {
 const statusCode = computed(() => Number(task.value?.needStatus ?? 0));
 const isAdminView = computed(() => route.path.startsWith("/admin"));
 const appealId = computed(() => Number(route.query.appealId ?? 0));
-const isAppealMode = computed(() => isAdminView.value && appealId.value > 0);
+const isAppealMode = computed(() => {
+  const fromAppeal = String(route.query.mode ?? "") === "appeal";
+  return isAdminView.value && (appealId.value > 0 || fromAppeal);
+});
 const isAppealProcessed = computed(() => Number(appealStatus.value) === 1);
 const isPublisher = computed(() => Number(task.value?.publisherId ?? 0) === Number(auth.user?.id ?? 0));
 const isAcceptor = computed(() => Number(task.value?.acceptorId ?? 0) === Number(auth.user?.id ?? 0));
@@ -82,6 +86,10 @@ const statusText = computed(() => {
   if (statusCode.value === 3) return "已完成";
   return "未承接";
 });
+
+function appealStatusText(code) {
+  return Number(code ?? 0) === 1 ? "已处理" : "待处理";
+}
 
 const basicRows = computed(() => {
   if (!task.value) return [];
@@ -138,6 +146,7 @@ async function fetchTask() {
 async function syncAppealStatus() {
   if (!isAppealMode.value || !appealId.value) {
     appealStatus.value = 0;
+    appealDetail.value = null;
     return;
   }
   try {
@@ -145,8 +154,22 @@ async function syncAppealStatus() {
     const list = Array.isArray(res?.data) ? res.data : [];
     const current = list.find((item) => Number(item?.id) === appealId.value);
     appealStatus.value = Number(current?.status ?? 0);
+    appealDetail.value = current
+      ? {
+          id: Number(current.id ?? 0),
+          claimText: current.claimText ?? current.claim_text ?? "",
+          evidenceText: current.evidenceText ?? current.evidence_text ?? "",
+          evidenceImage: current.evidenceImage ?? current.evidence_image ?? "",
+          createdAt: String(current.createdAt ?? current.created_at ?? "").replace("T", " "),
+          appellantName: current.appellantName ?? current.appellant_name ?? "",
+          appellantRole: current.appellantRole ?? current.appellant_role ?? "",
+          targetType: String(current.targetType ?? current.target_type ?? "").toUpperCase(),
+          status: Number(current.status ?? 0)
+        }
+      : null;
   } catch {
     appealStatus.value = 0;
+    appealDetail.value = null;
   }
 }
 
@@ -507,6 +530,48 @@ watch(
       </article>
     </section>
 
+    <section v-if="isAppealMode && appealDetail" class="card">
+      <h2>申诉信息</h2>
+      <div class="table">
+        <div class="row">
+          <span>申诉人</span>
+          <span>{{ appealDetail.appellantName || "-" }}（{{ appealDetail.appellantRole || "-" }}）</span>
+        </div>
+        <div class="row">
+          <span>申诉类型</span>
+          <span>{{ appealDetail.targetType === "DATA" ? "数据" : "任务" }}</span>
+        </div>
+        <div class="row">
+          <span>状态</span>
+          <span>{{ appealStatusText(appealDetail.status) }}</span>
+        </div>
+        <div class="row">
+          <span>申诉时间</span>
+          <span>{{ appealDetail.createdAt || "-" }}</span>
+        </div>
+        <div class="row">
+          <span>申诉理由</span>
+          <span>{{ appealDetail.claimText || "暂无" }}</span>
+        </div>
+        <div class="row">
+          <span>证据说明</span>
+          <span>{{ appealDetail.evidenceText || "暂无" }}</span>
+        </div>
+        <div class="row">
+          <span>证据图片</span>
+          <span>
+            <img
+              v-if="appealDetail.evidenceImage"
+              class="appeal-image"
+              :src="`/api/files/download?name=${encodeURIComponent(appealDetail.evidenceImage)}`"
+              alt="证据图片"
+            />
+            <template v-else>暂无</template>
+          </span>
+        </div>
+      </div>
+    </section>
+
     <el-dialog v-model="appealDialogVisible" :title="appealDialogTitle" width="680px">
       <el-form :model="appealForm" label-position="top" class="appeal-form">
         <div class="appeal-grid">
@@ -566,7 +631,7 @@ watch(
 .head-main h1 {
   margin: 0;
   color: #1f2c3d;
-  font-size: 34px;
+  font-size: 28px;
   line-height: 1.1;
 }
 
@@ -679,7 +744,7 @@ watch(
 
 .card h2 {
   margin: 0 0 8px;
-  font-size: 22px;
+  font-size: 18px;
   color: #1f2c3d;
 }
 
@@ -802,6 +867,13 @@ watch(
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
+}
+
+.appeal-image {
+  width: 180px;
+  max-width: 100%;
+  border: 1px solid #dbe4f1;
+  border-radius: 8px;
 }
 
 @media (max-width: 980px) {

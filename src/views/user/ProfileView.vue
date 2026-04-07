@@ -5,16 +5,17 @@ import { ElMessage } from "element-plus";
 import DatasetCard from "../../components/DatasetCard.vue";
 import NeedCard from "../../components/NeedCard.vue";
 import { useAuthStore } from "../../stores/auth";
-import { customRequestApi, orderApi, productApi } from "../../services/api";
+import { customRequestApi, orderApi, productApi, taskAppealApi } from "../../services/api";
 
 const route = useRoute();
 const router = useRouter();
 const auth = useAuthStore();
 
-const tabs = ["收藏", "个人仓库", "我的数据", "我的订单", "发布任务", "承接任务"];
+const tabs = ["收藏", "个人仓库", "我的数据", "我的订单", "我的申诉", "发布任务", "承接任务"];
 const datasetTabs = ["收藏", "个人仓库", "我的数据"];
 const needTabs = ["发布任务", "承接任务"];
 const orderTabs = ["我的订单"];
+const appealTabs = ["我的申诉"];
 
 const activeTab = ref(tabs[0]);
 const purchasedDatasets = ref([]);
@@ -23,10 +24,12 @@ const favoriteDatasets = ref([]);
 const publishedNeeds = ref([]);
 const acceptedNeeds = ref([]);
 const orders = ref([]);
+const appeals = ref([]);
 
 const datasetLoading = ref(false);
 const needsLoading = ref(false);
 const ordersLoading = ref(false);
+const appealsLoading = ref(false);
 
 const userName = computed(() => auth.user?.name || "未命名用户");
 const userPoints = computed(() => Number(auth.user?.points ?? 0));
@@ -52,6 +55,7 @@ const tabNeeds = computed(() => {
 });
 
 const displayOrders = computed(() => orders.value.map(normalizeOrder));
+const displayAppeals = computed(() => appeals.value.map(normalizeAppeal));
 
 watch(
   () => route.query.tab,
@@ -141,6 +145,25 @@ function normalizeOrder(item) {
   };
 }
 
+function normalizeAppeal(item) {
+  const targetType = String(item?.targetType ?? item?.target_type ?? "").toUpperCase();
+  const role = String(item?.appellantRole ?? item?.appellant_role ?? "");
+  const type = targetType === "DATA" ? "数据" : targetType === "TASK" ? "任务" : role.includes("购买") ? "数据" : "任务";
+  return {
+    id: Number(item?.id ?? 0),
+    requestId: Number(item?.requestId ?? item?.request_id ?? 0),
+    title: item?.requestTitle ?? item?.request_title ?? "",
+    type,
+    status: Number(item?.status ?? 0) === 1 ? "已处理" : "待处理",
+    claimText: item?.claimText ?? item?.claim_text ?? "",
+    evidenceText:
+      item?.evidenceText ?? item?.evidence_text ?? item?.evidenceDesc ?? item?.evidence_desc ?? item?.evidence ?? "",
+    evidenceImage:
+      item?.evidenceImage ?? item?.evidence_image ?? item?.evidenceUrl ?? item?.evidence_url ?? item?.image ?? "",
+    createdAt: formatTime(item?.createdAt ?? item?.created_at ?? "")
+  };
+}
+
 function formatTime(value) {
   return String(value || "").replace("T", " ");
 }
@@ -166,6 +189,24 @@ function openOrderDetail(order) {
   router.push(order.targetPath);
 }
 
+function openAppealDetail(appeal) {
+  if (!appeal?.requestId) {
+    ElMessage.info("该申诉暂无可跳转详情");
+    return;
+  }
+  if (appeal.type === "数据") {
+    router.push(`/user/market/${appeal.requestId}`);
+    return;
+  }
+  router.push(`/user/custom-bids/${appeal.requestId}`);
+}
+
+function appealImageUrl(name) {
+  const value = String(name || "");
+  if (!value) return "";
+  if (value.startsWith("http://") || value.startsWith("https://") || value.startsWith("/")) return value;
+  return `/api/files/download?name=${encodeURIComponent(value)}`;
+}
 function goEditProfile() {
   router.push(route.path.startsWith("/admin") ? "/admin/profile/edit" : "/user/profile/edit");
 }
@@ -209,6 +250,23 @@ async function fetchOrders(silent = false) {
     return [];
   } finally {
     if (!silent) ordersLoading.value = false;
+  }
+}
+
+async function fetchAppeals(silent = false) {
+  if (!userId.value) return;
+  if (!silent) appealsLoading.value = true;
+  try {
+    const res = await taskAppealApi.getUserList(userId.value);
+    if (res?.code !== 200) {
+      throw new Error(res?.message || "加载申诉失败");
+    }
+    appeals.value = Array.isArray(res?.data) ? res.data : [];
+  } catch (e) {
+    appeals.value = [];
+    if (!silent) ElMessage.error(e?.message || "加载申诉失败");
+  } finally {
+    if (!silent) appealsLoading.value = false;
   }
 }
 
@@ -305,6 +363,10 @@ async function loadTabData() {
   if (!userId.value) return;
   if (orderTabs.includes(activeTab.value)) {
     await fetchOrders(false);
+    return;
+  }
+  if (appealTabs.includes(activeTab.value)) {
+    await fetchAppeals(false);
     return;
   }
   if (activeTab.value === "个人仓库") {
@@ -465,6 +527,53 @@ function handleDownload(item) {
       </section>
     </template>
 
+    <template v-else-if="appealTabs.includes(activeTab)">
+      <section class="orders-card" v-loading="appealsLoading">
+        <table>
+          <thead>
+            <tr>
+              <th>申诉ID</th>
+              <th>类型</th>
+              <th>目标</th>
+              <th>申诉理由</th>
+              <th>证据说明</th>
+              <th>证据图片</th>
+              <th>状态</th>
+              <th>时间</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr
+              v-for="item in displayAppeals"
+              :key="item.id"
+              :class="{ clickable: Boolean(item.requestId) }"
+              @click="openAppealDetail(item)"
+            >
+              <td>{{ item.id }}</td>
+              <td>{{ item.type }}</td>
+              <td>{{ item.title || `记录#${item.requestId}` }}</td>
+              <td class="appeal-claim">{{ item.claimText || "-" }}</td>
+              <td class="appeal-claim">{{ item.evidenceText || "-" }}</td>
+              <td>
+                <img
+                  v-if="item.evidenceImage"
+                  class="appeal-evidence-img"
+                  :src="appealImageUrl(item.evidenceImage)"
+                  alt="证据图片"
+                />
+                <span v-else>-</span>
+              </td>
+              <td>
+                <span class="status-pill" :class="{ done: item.status === '已处理' }">{{ item.status }}</span>
+              </td>
+              <td>{{ item.createdAt }}</td>
+            </tr>
+          </tbody>
+        </table>
+        <p v-if="!appealsLoading && displayAppeals.length === 0" class="empty-text">当前栏目暂无申诉记录。</p>
+      </section>
+    </template>
+
     <p v-else class="content-tip">该栏目内容正在建设中。</p>
   </section>
 </template>
@@ -599,6 +708,35 @@ function handleDownload(item) {
 
 .orders-card tbody tr.clickable:hover td {
   background: #f7fbff;
+}
+
+.appeal-claim {
+  max-width: 280px;
+  white-space: normal;
+  word-break: break-word;
+}
+
+.appeal-evidence-img {
+  width: 64px;
+  height: 64px;
+  object-fit: cover;
+  border: 1px solid #dce4f1;
+  border-radius: 8px;
+}
+
+.status-pill {
+  display: inline-block;
+  border: 1px solid #9fc2ef;
+  border-radius: 999px;
+  padding: 2px 10px;
+  color: #2f5a90;
+  background: rgba(47, 90, 144, 0.12);
+}
+
+.status-pill.done {
+  border-color: #7bd69d;
+  color: #2d8a4d;
+  background: rgba(58, 170, 93, 0.12);
 }
 
 .amount.plus {

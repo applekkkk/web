@@ -22,8 +22,7 @@ const adminMenus = [
   { to: "/admin/review", label: "数据审核"},
   { to: "/admin/users", label: "用户管理"},
   { to: "/admin/orders", label: "订单监控" },
-  { to: "/admin/appeals", label: "申诉处理" },
-  { to: "/admin/messages", label: "留言查看" }
+  { to: "/admin/appeals", label: "申诉处理" }
 ];
 
 const menus = computed(() => (isAdmin.value ? adminMenus : userMenus));

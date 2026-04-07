@@ -2,7 +2,7 @@
 import { computed, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import { useAuthStore } from "../../stores/auth";
-import { messageApi, orderApi, reviewApi, userApi } from "../../services/api";
+import { orderApi, reviewApi, taskAppealApi, userApi } from "../../services/api";
 
 const router = useRouter();
 const auth = useAuthStore();
@@ -17,26 +17,26 @@ const lastLogin = computed(() => new Date().toISOString().slice(0, 10));
 const pendingReviewCount = ref(0);
 const orderCount = ref(0);
 const userCount = ref(0);
-const messageCount = ref(0);
+const appealCount = ref(0);
 
 const rows = computed(() => [
   { label: "待审核数据", value: pendingReviewCount.value, route: "admin-review", query: { status: "待审核" } },
   { label: "交易订单", value: orderCount.value, route: "admin-orders" },
   { label: "用户管理", value: userCount.value, route: "admin-users" },
-  { label: "留言查看", value: messageCount.value, route: "admin-messages" }
+  { label: "申诉处理", value: appealCount.value, route: "admin-appeals" }
 ]);
 
 async function loadStats() {
-  const [reviewRes, orderRes, userRes, msgRes] = await Promise.all([
+  const [reviewRes, orderRes, userRes, appealRes] = await Promise.all([
     reviewApi.getPendingList().catch(() => null),
     orderApi.getAll().catch(() => null),
     userApi.getAll().catch(() => null),
-    messageApi.getAll().catch(() => null)
+    taskAppealApi.getAll().catch(() => null)
   ]);
   pendingReviewCount.value = Array.isArray(reviewRes?.data) ? reviewRes.data.length : 0;
   orderCount.value = Array.isArray(orderRes?.data) ? orderRes.data.length : 0;
   userCount.value = Array.isArray(userRes?.data) ? userRes.data.length : 0;
-  messageCount.value = Array.isArray(msgRes?.data) ? msgRes.data.length : 0;
+  appealCount.value = Array.isArray(appealRes?.data) ? appealRes.data.length : 0;
 }
 
 function goToPage(item) {

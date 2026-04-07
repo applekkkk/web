@@ -15,6 +15,7 @@ const buying = ref(false);
 const appealing = ref(false);
 const appealDialogVisible = ref(false);
 const processingAppeal = ref(false);
+const appealDetail = ref(null);
 const appealForm = ref({
   claimText: "",
   evidenceText: ""
@@ -25,7 +26,10 @@ const reviewStatus = ref("待审核");
 const reviewStatusOptions = ["待审核", "审核中", "通过", "驳回"];
 const isAdminView = computed(() => route.path.startsWith("/admin"));
 const appealId = computed(() => Number(route.query.appealId ?? 0));
-const isAppealMode = computed(() => isAdminView.value && appealId.value > 0);
+const isAppealMode = computed(() => {
+  const fromAppeal = String(route.query.mode ?? "") === "appeal";
+  return isAdminView.value && (appealId.value > 0 || fromAppeal);
+});
 const appealBuyerId = computed(() => Number(route.query.buyerId ?? 0));
 const adminPurchaseStatus = ref("purchased");
 const suppressReviewSync = ref(true);
@@ -41,6 +45,10 @@ function statusLabelFromCode(code) {
   if (code === 1) return "通过";
   if (code === 2) return "驳回";
   return "待审核";
+}
+
+function appealStatusText(code) {
+  return Number(code ?? 0) === 1 ? "已处理" : "待处理";
 }
 
 function statusCodeFromLabel(label) {
@@ -105,15 +113,30 @@ async function refreshPurchasedState() {
 async function syncAppealStatus() {
   if (!isAppealMode.value || !appealId.value) {
     appealStatus.value = 0;
+    appealDetail.value = null;
     return;
   }
   try {
     const res = await taskAppealApi.getAll();
     const list = Array.isArray(res?.data) ? res.data : [];
-    const current = list.find((item) => Number(item?.id) === appealId.value);
+    const current = list.find((item) => Number(item?.id) === appealId.value) || null;
     appealStatus.value = Number(current?.status ?? 0);
+    appealDetail.value = current
+      ? {
+          id: Number(current.id ?? 0),
+          claimText: current.claimText ?? current.claim_text ?? "",
+          evidenceText: current.evidenceText ?? current.evidence_text ?? "",
+          evidenceImage: current.evidenceImage ?? current.evidence_image ?? "",
+          createdAt: String(current.createdAt ?? current.created_at ?? "").replace("T", " "),
+          appellantName: current.appellantName ?? current.appellant_name ?? "",
+          appellantRole: current.appellantRole ?? current.appellant_role ?? "",
+          targetType: String(current.targetType ?? current.target_type ?? "").toUpperCase(),
+          status: Number(current.status ?? 0)
+        }
+      : null;
   } catch {
     appealStatus.value = 0;
+    appealDetail.value = null;
   }
 }
 
@@ -173,7 +196,7 @@ watch(
 watch(
   () => reviewStatus.value,
   async (next, prev) => {
-    if (!isAdminView.value || !dataset.value || suppressReviewSync.value) return;
+    if (!isAdminView.value || !dataset.value || suppressReviewSync.value || isAppealMode.value) return;
     const statusCode = statusCodeFromLabel(next);
     if (!statusCode) return;
     try {
@@ -536,6 +559,48 @@ async function handleBuy() {
       </div>
     </section>
 
+    <section v-if="isAppealMode && appealDetail" class="block">
+      <h2>申诉信息</h2>
+      <div class="table">
+        <div class="row two-col">
+          <span>申诉人</span>
+          <span>{{ appealDetail.appellantName || "-" }}（{{ appealDetail.appellantRole || "-" }}）</span>
+        </div>
+        <div class="row two-col">
+          <span>申诉类型</span>
+          <span>{{ appealDetail.targetType === "DATA" ? "数据" : "任务" }}</span>
+        </div>
+        <div class="row two-col">
+          <span>状态</span>
+          <span>{{ appealStatusText(appealDetail.status) }}</span>
+        </div>
+        <div class="row two-col">
+          <span>申诉时间</span>
+          <span>{{ appealDetail.createdAt || "-" }}</span>
+        </div>
+        <div class="row two-col">
+          <span>申诉理由</span>
+          <span>{{ appealDetail.claimText || "暂无" }}</span>
+        </div>
+        <div class="row two-col">
+          <span>证据说明</span>
+          <span>{{ appealDetail.evidenceText || "暂无" }}</span>
+        </div>
+        <div class="row two-col">
+          <span>证据图片</span>
+          <span>
+            <img
+              v-if="appealDetail.evidenceImage"
+              class="appeal-image"
+              :src="`/api/files/download?name=${encodeURIComponent(appealDetail.evidenceImage)}`"
+              alt="证据图片"
+            />
+            <template v-else>暂无</template>
+          </span>
+        </div>
+      </div>
+    </section>
+
     <el-dialog v-model="appealDialogVisible" :title="`${dataset?.name || '数据'} · 数据申诉`" width="680px">
       <el-form label-position="top" class="appeal-form">
         <div class="appeal-grid">
@@ -851,6 +916,13 @@ p {
 .file-name {
   color: #5b6a80;
   font-size: 13px;
+}
+
+.appeal-image {
+  width: 180px;
+  max-width: 100%;
+  border: 1px solid #dbe4f1;
+  border-radius: 8px;
 }
 
 @media (max-width: 900px) {
