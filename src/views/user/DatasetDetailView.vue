@@ -35,10 +35,23 @@ const adminPurchaseStatus = ref("purchased");
 const suppressReviewSync = ref(true);
 const appealStatus = ref(0);
 const isAppealProcessed = computed(() => Number(appealStatus.value) === 1);
+const previewLoading = ref(false);
+const previewError = ref("");
+const previewColumns = ref([]);
+const previewRows = ref([]);
+const graphPreviewLoading = ref(false);
+const graphPreviewError = ref("");
+const graphPreviewUrl = ref("");
+const graphPreviewObjectUrl = ref(false);
 
 const sourceDataset = computed(() => {
   const id = Number(route.params.id);
   return marketData.find((item) => item.id === id) || null;
+});
+
+const isNetworkDataset = computed(() => {
+  const category = String(dataset.value?.category || "");
+  return category.includes("网络") || category.includes("图数据");
 });
 
 function statusLabelFromCode(code) {
@@ -142,6 +155,67 @@ async function syncAppealStatus() {
   }
 }
 
+function resetTabularPreview() {
+  previewError.value = "";
+  previewColumns.value = [];
+  previewRows.value = [];
+}
+
+function clearGraphPreview() {
+  if (graphPreviewObjectUrl.value && graphPreviewUrl.value) {
+    URL.revokeObjectURL(graphPreviewUrl.value);
+  }
+  graphPreviewLoading.value = false;
+  graphPreviewError.value = "";
+  graphPreviewUrl.value = "";
+  graphPreviewObjectUrl.value = false;
+}
+
+async function fetchPreview() {
+  resetTabularPreview();
+
+  const fileName = String(dataset.value?.fileName || "").trim();
+  if (!fileName) return;
+
+  previewLoading.value = true;
+  try {
+    const res = await request.get("/files/preview", { params: { name: fileName } });
+    if (res?.code !== 200) {
+      throw new Error(res?.message || "预览加载失败");
+    }
+    const columns = Array.isArray(res?.data?.columns) ? res.data.columns : [];
+    const rows = Array.isArray(res?.data?.rows) ? res.data.rows : [];
+    previewColumns.value = columns;
+    previewRows.value = rows;
+  } catch (e) {
+    previewError.value = e?.message || "预览加载失败";
+  } finally {
+    previewLoading.value = false;
+  }
+}
+
+async function fetchGraphPreview() {
+  clearGraphPreview();
+
+  const fileName = String(dataset.value?.fileName || "").trim();
+  if (!fileName) return;
+
+  graphPreviewLoading.value = true;
+  try {
+    const blob = await request.get("/files/graph-preview", {
+      params: { name: fileName },
+      responseType: "blob"
+    });
+    const previewBlob = blob instanceof Blob ? blob : new Blob([blob], { type: "image/png" });
+    graphPreviewUrl.value = URL.createObjectURL(previewBlob);
+    graphPreviewObjectUrl.value = true;
+  } catch (e) {
+    graphPreviewError.value = e?.message || "可视化预览加载失败";
+  } finally {
+    graphPreviewLoading.value = false;
+  }
+}
+
 async function fetchDataset() {
   const id = Number(route.params.id);
   if (!id) return;
@@ -164,11 +238,33 @@ async function fetchDataset() {
     suppressReviewSync.value = true;
     reviewStatus.value = statusLabelFromCode(res?.data?.reviewStatus ?? res?.data?.review_status);
     suppressReviewSync.value = false;
+    if (isNetworkDataset.value) {
+      resetTabularPreview();
+      if (isAdminView.value) {
+        await fetchGraphPreview();
+      } else {
+        clearGraphPreview();
+      }
+    } else {
+      clearGraphPreview();
+      await fetchPreview();
+    }
     await syncAppealStatus();
   } catch (e) {
     const fallback = sourceDataset.value ? { ...sourceDataset.value } : null;
     dataset.value = fallback ? normalizeProduct(fallback) : null;
     suppressReviewSync.value = false;
+    if (dataset.value && isNetworkDataset.value) {
+      resetTabularPreview();
+      if (isAdminView.value) {
+        await fetchGraphPreview();
+      } else {
+        clearGraphPreview();
+      }
+    } else {
+      clearGraphPreview();
+      await fetchPreview();
+    }
     await syncAppealStatus();
     if (!dataset.value) {
       ElMessage.error(e?.message || "加载失败");
@@ -280,6 +376,10 @@ function toggleFavorite() {
 }
 
 function handleDownload() {
+  if (isAdminView.value) {
+    ElMessage.warning("管理员仅可预览数据，不能下载");
+    return;
+  }
   if (!isAdminView.value && !dataset.value?.purchased) {
     ElMessage.warning("未购买");
     return;
@@ -528,7 +628,6 @@ async function handleBuy() {
           <el-select v-model="reviewStatus" class="status-select" placeholder="审核状态">
             <el-option v-for="s in reviewStatusOptions" :key="s" :label="s" :value="s" />
           </el-select>
-          <button type="button" class="admin-download" @click="handleDownload">下载文件</button>
         </template>
       </div>
       <button v-else-if="!dataset.purchased" class="download" @click="handleBuy">购买数据集</button>
@@ -541,6 +640,41 @@ async function handleBuy() {
     <section class="block">
       <h2>数据信息</h2>
       <p>{{ dataset.info || "暂无详细描述。" }}</p>
+    </section>
+
+    <section v-if="!isNetworkDataset" class="block">
+      <h2>数据预览（前10条）</h2>
+      <div class="preview-shell">
+        <div v-if="previewLoading" class="preview-empty">预览加载中...</div>
+        <div v-else-if="previewError" class="preview-empty">{{ previewError }}</div>
+        <div v-else-if="previewRows.length === 0" class="preview-empty">暂无可预览数据</div>
+        <div v-else class="preview-scroll">
+          <table class="preview-table">
+            <thead>
+              <tr>
+                <th v-for="(col, idx) in previewColumns" :key="`head-${idx}`">{{ col || `列${idx + 1}` }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="(row, rIdx) in previewRows" :key="`row-${rIdx}`">
+                <td v-for="(cell, cIdx) in row" :key="`cell-${rIdx}-${cIdx}`">{{ cell }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section v-else-if="isAdminView" class="block">
+      <h2>网络图预览（力导向）</h2>
+      <div class="preview-shell">
+        <div v-if="graphPreviewLoading" class="preview-empty">可视化加载中...</div>
+        <div v-else-if="graphPreviewError" class="preview-empty">{{ graphPreviewError }}</div>
+        <div v-else-if="graphPreviewUrl" class="graph-preview-wrap">
+          <img class="graph-preview-image" :src="graphPreviewUrl" alt="网络图预览" />
+        </div>
+        <div v-else class="preview-empty">暂无可视化预览</div>
+      </div>
     </section>
 
     <section class="block">
@@ -792,15 +926,6 @@ h1 {
   gap: 8px;
 }
 
-.admin-download {
-  border: 1px solid #c7d7ef;
-  border-radius: 999px;
-  padding: 8px 16px;
-  color: #2f4e74;
-  background: #fff;
-  cursor: pointer;
-}
-
 .block {
   margin-top: 26px;
 }
@@ -822,6 +947,60 @@ p {
   color: #414e5f;
   font-size: 16px;
   line-height: 1.75;
+}
+
+.preview-shell {
+  border: 1px solid #edf1f6;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.preview-empty {
+  padding: 16px;
+  color: #7b8899;
+}
+
+.preview-scroll {
+  max-height: 360px;
+  overflow: auto;
+}
+
+.preview-table {
+  width: 100%;
+  min-width: 640px;
+  border-collapse: collapse;
+}
+
+.preview-table th,
+.preview-table td {
+  border-bottom: 1px solid #edf1f6;
+  padding: 10px 12px;
+  color: #445063;
+  font-size: 14px;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.preview-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: #f8fafd;
+  color: #2f3b4c;
+  font-weight: 600;
+}
+
+.graph-preview-wrap {
+  padding: 14px;
+}
+
+.graph-preview-image {
+  width: 100%;
+  max-height: 520px;
+  object-fit: contain;
+  border: 1px solid #edf1f6;
+  border-radius: 10px;
+  background: #f8fbff;
 }
 
 .table {
