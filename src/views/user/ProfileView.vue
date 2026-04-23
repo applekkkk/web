@@ -480,9 +480,10 @@ function handleDownload(item) {
       <section v-loading="datasetLoading">
         <section v-if="tabDatasets.length" class="cards-grid">
           <DatasetCard
-            v-for="item in tabDatasets"
+            v-for="(item, idx) in tabDatasets"
             :key="item.id"
             :item="item"
+            :style="{ '--stagger': idx }"
             @open="goDatasetDetail(item.id)"
             @like="toggleLike"
             @favorite="toggleFavorite"
@@ -496,7 +497,15 @@ function handleDownload(item) {
     <template v-else-if="needTabs.includes(activeTab)">
       <section v-loading="needsLoading">
         <section v-if="tabNeeds.length" class="cards-grid">
-          <NeedCard v-for="item in tabNeeds" :key="item.id" :item="item" :show-action="false" clickable @open="goNeedDetail" />
+          <NeedCard
+            v-for="(item, idx) in tabNeeds"
+            :key="item.id"
+            :item="item"
+            :style="{ '--stagger': idx }"
+            :show-action="false"
+            clickable
+            @open="goNeedDetail"
+          />
         </section>
         <p v-else class="empty-text">当前栏目暂无任务。</p>
       </section>

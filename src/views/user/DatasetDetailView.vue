@@ -43,6 +43,8 @@ const graphPreviewLoading = ref(false);
 const graphPreviewError = ref("");
 const graphPreviewUrl = ref("");
 const graphPreviewObjectUrl = ref(false);
+const likeAnimating = ref(false);
+const favoriteAnimating = ref(false);
 
 const sourceDataset = computed(() => {
   const id = Number(route.params.id);
@@ -337,6 +339,7 @@ function toggleLike() {
     ElMessage.warning("请先登录");
     return;
   }
+  triggerActionAnimation("like");
   productApi
     .setLike(dataset.value.id, auth.user.id, !dataset.value.liked)
     .then((res) => {
@@ -359,6 +362,7 @@ function toggleFavorite() {
     ElMessage.warning("请先登录");
     return;
   }
+  triggerActionAnimation("favorite");
   productApi
     .setFavorite(dataset.value.id, auth.user.id, !dataset.value.favorited)
     .then((res) => {
@@ -373,6 +377,17 @@ function toggleFavorite() {
     .catch((e) => {
       ElMessage.error(e?.message || "收藏失败");
     });
+}
+
+function triggerActionAnimation(type) {
+  const target = type === "like" ? likeAnimating : favoriteAnimating;
+  target.value = false;
+  requestAnimationFrame(() => {
+    target.value = true;
+    setTimeout(() => {
+      target.value = false;
+    }, 420);
+  });
 }
 
 function handleDownload() {
@@ -593,13 +608,13 @@ async function handleBuy() {
         </div>
 
         <div v-if="!isAdminView" class="icon-actions">
-          <button type="button" class="icon-btn" @click="toggleLike">
+          <button type="button" class="icon-btn" :class="{ 'is-animating': likeAnimating }" @click="toggleLike">
             <img :src="dataset.liked ? '/img/liked.png' : '/img/like.png'" alt="点赞" />
-            <span>{{ dataset.likes ?? 0 }}</span>
+            <span :class="{ 'value-pop': likeAnimating }">{{ dataset.likes ?? 0 }}</span>
           </button>
-          <button type="button" class="icon-btn" @click="toggleFavorite">
+          <button type="button" class="icon-btn" :class="{ 'is-animating': favoriteAnimating }" @click="toggleFavorite">
             <img :src="dataset.favorited ? '/img/favorited.png' : '/img/favorite.png'" alt="收藏" />
-            <span>{{ dataset.stars ?? 0 }}</span>
+            <span :class="{ 'value-pop': favoriteAnimating }">{{ dataset.stars ?? 0 }}</span>
           </button>
           <button type="button" class="icon-btn" @click="handleDownload">
             <img src="/img/download.png" alt="下载" />
@@ -872,10 +887,22 @@ h1 {
   cursor: pointer;
 }
 
+.icon-btn.is-animating img {
+  animation: detailLikeBounce 0.4s cubic-bezier(0.2, 0.9, 0.2, 1);
+}
+
+.icon-btn.is-animating:nth-child(2) img {
+  animation-name: detailFavoriteGlow;
+}
+
 .icon-btn img {
   width: 24px;
   height: 24px;
   object-fit: contain;
+}
+
+.value-pop {
+  animation: detailValueRise 0.36s ease;
 }
 
 .download {
@@ -908,6 +935,58 @@ h1 {
   color: #299be4;
   background: #f3faff;
   cursor: pointer;
+}
+
+@keyframes detailLikeBounce {
+  0% {
+    transform: scale(1);
+  }
+  35% {
+    transform: scale(1.24);
+  }
+  70% {
+    transform: scale(0.95);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes detailFavoriteGlow {
+  0% {
+    transform: scale(1);
+    filter: drop-shadow(0 0 0 rgba(255, 193, 59, 0));
+  }
+  35% {
+    transform: scale(1.18);
+    filter: drop-shadow(0 0 8px rgba(255, 193, 59, 0.52));
+  }
+  100% {
+    transform: scale(1);
+    filter: drop-shadow(0 0 0 rgba(255, 193, 59, 0));
+  }
+}
+
+@keyframes detailValueRise {
+  0% {
+    opacity: 0.65;
+    transform: translateY(2px);
+  }
+  45% {
+    opacity: 1;
+    transform: translateY(-2px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .icon-btn.is-animating img,
+  .value-pop {
+    animation: none;
+  }
 }
 
 .status-select {

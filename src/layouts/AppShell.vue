@@ -457,6 +457,7 @@ onBeforeUnmount(() => {
   border-radius: 50%;
   background: linear-gradient(135deg, #5d84d9, #4fd0c6);
   box-shadow: 0 0 0 4px rgba(79, 208, 198, 0.12);
+  animation: breathe-dot 2.1s ease-in-out infinite;
 }
 
 .sub {
@@ -478,12 +479,23 @@ onBeforeUnmount(() => {
   color: #2f578d;
   background: #f7fbff;
   cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+  animation: breathe-btn 2.4s ease-in-out infinite;
+}
+
+.checkin-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 14px rgba(67, 107, 168, 0.18);
+  background: #ffffff;
 }
 
 .checkin-btn.disabled {
   color: #8ca0bc;
   background: #f4f7fb;
   cursor: not-allowed;
+  animation: none;
+  box-shadow: none;
+  transform: none;
 }
 
 .avatar-wrap {
@@ -567,6 +579,28 @@ onBeforeUnmount(() => {
 .content {
   flex: 1;
   padding: 20px 24px;
+}
+
+@keyframes breathe-btn {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(79, 139, 239, 0.12);
+  }
+  50% {
+    box-shadow: 0 0 0 7px rgba(79, 139, 239, 0);
+  }
+}
+
+@keyframes breathe-dot {
+  0%,
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 4px rgba(79, 208, 198, 0.12);
+  }
+  50% {
+    transform: scale(1.1);
+    box-shadow: 0 0 0 8px rgba(79, 208, 198, 0);
+  }
 }
 
 @media (max-width: 900px) {

@@ -122,9 +122,10 @@ onMounted(() => {
 
     <section class="cards-grid" v-loading="loading">
       <NeedCard
-        v-for="item in pagedList"
+        v-for="(item, idx) in pagedList"
         :key="item.id"
         :item="item"
+        :style="{ '--stagger': idx }"
         :show-action="false"
         right-mode="points"
         clickable
@@ -169,6 +170,13 @@ onMounted(() => {
   border: 1px solid #d6dfed;
   border-radius: 10px;
   padding: 10px 12px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: #6f9ff5;
+  box-shadow: 0 0 0 3px rgba(79, 139, 239, 0.2);
 }
 
 .category-row {

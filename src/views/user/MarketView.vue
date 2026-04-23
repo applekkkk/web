@@ -278,9 +278,10 @@ onMounted(async () => {
 
     <section class="cards-grid" v-loading="loading">
       <DatasetCard
-        v-for="item in marketList"
+        v-for="(item, idx) in marketList"
         :key="item.id"
         :item="item"
+        :style="{ '--stagger': idx }"
         @open="goDetail(item.id)"
         @like="toggleLike"
         @favorite="toggleFavorite"
@@ -332,6 +333,13 @@ onMounted(async () => {
   border-radius: 10px;
   padding: 10px 12px;
   font-size: 14px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: #6f9ff5;
+  box-shadow: 0 0 0 3px rgba(79, 139, 239, 0.2);
 }
 
 .sort-select {

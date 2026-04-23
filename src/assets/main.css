@@ -1,5 +1,9 @@
+@import url("https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@600;700&family=Space+Mono:wght@400;700&display=swap");
+
 :root {
   font-family: "Microsoft YaHei", "PingFang SC", sans-serif;
+  --font-serif: "Noto Serif SC", "Source Han Serif SC", "Songti SC", serif;
+  --font-mono: "Space Mono", "JetBrains Mono", "Consolas", monospace;
   color: #1f2a37;
   background-color: #f3f5f8;
   line-height: 1.5;

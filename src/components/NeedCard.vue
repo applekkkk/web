@@ -48,13 +48,29 @@ function statusClass(item) {
 function rewardText(item) {
   return `${item.budget ?? 0}`;
 }
+
+function rewardTierClass(item) {
+  const value = Number(item?.budget ?? 0);
+  if (value <= 9) return "tier-low";
+  if (value <= 99) return "tier-mid";
+  return "tier-high";
+}
+
+function categoryToneClass(category) {
+  const text = String(category || "").toLowerCase();
+  if (text.includes("生物") || text.includes("基因") || text.includes("医疗") || text.includes("生命")) return "tone-bio";
+  if (text.includes("金融") || text.includes("股票") || text.includes("证券") || text.includes("交易")) return "tone-finance";
+  if (text.includes("图数据") || text.includes("图") || text.includes("graph")) return "tone-graph";
+  if (text.includes("社会") || text.includes("社交") || text.includes("关系网") || text.includes("网络")) return "tone-social";
+  return "tone-default";
+}
 </script>
 
 <template>
   <article class="need-card" :class="{ clickable }" @click="onOpen">
     <div class="head">
       <h3>{{ item.title }}</h3>
-      <span v-if="rightMode === 'points'" class="reward-badge">
+      <span v-if="rightMode === 'points'" class="reward-badge" :class="rewardTierClass(item)">
         <span class="reward-label">积分</span>
         <span class="reward-value">{{ rewardText(item) }}</span>
       </span>
@@ -64,7 +80,7 @@ function rewardText(item) {
     <p class="desc">{{ item.description || "暂无详细任务描述。" }}</p>
 
     <div class="pill-row">
-      <span class="pill type-pill">{{ item.category || "其他" }}</span>
+      <span class="pill type-pill" :class="categoryToneClass(item.category || '其他')">{{ item.category || "其他" }}</span>
       <span
         v-for="tag in String(item.tags || '').split(',').filter(Boolean)"
         :key="`${item.id}-${tag}`"
@@ -88,20 +104,43 @@ function rewardText(item) {
 
 <style scoped>
 .need-card {
+  position: relative;
+  overflow: hidden;
   border: 1px solid #e4eaf5;
-  border-radius: 12px;
-  padding: 12px;
+  border-radius: 14px;
+  padding: 14px;
   background: #fff;
-  transition: box-shadow 0.2s ease, transform 0.2s ease;
+  transition: box-shadow 0.28s ease, transform 0.28s ease, border-color 0.28s ease;
+  animation: cardCascadeIn 0.54s cubic-bezier(0.2, 0.7, 0, 1) both;
+  animation-delay: calc(var(--stagger, 0) * 72ms);
+}
+
+.need-card::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 3px;
+  transform: scaleX(0);
+  transform-origin: left center;
+  background: linear-gradient(90deg, #3f8cff, #67b4ff, #8bd3ff);
+  transition: transform 0.26s ease;
 }
 
 .need-card.clickable {
   cursor: pointer;
 }
 
-.need-card.clickable:hover {
-  box-shadow: 0 10px 18px rgba(17, 24, 39, 0.08);
-  transform: translateY(-1px);
+.need-card:hover {
+  border-color: #d8e6ff;
+  box-shadow: 0 14px 28px rgba(38, 76, 128, 0.16);
+  transform: translateY(-4px);
+}
+
+.need-card:hover::before,
+.need-card:focus-within::before {
+  transform: scaleX(1);
 }
 
 .head {
@@ -114,12 +153,15 @@ function rewardText(item) {
 h3 {
   margin: 0;
   color: #1f2d40;
-  font-size: 17px;
+  font-family: var(--font-serif);
+  font-size: 22px;
+  font-weight: 700;
 }
 
 .status {
   border-radius: 999px;
-  padding: 2px 9px;
+  padding: 3px 10px;
+  font-family: var(--font-mono);
   font-size: 11px;
   border: 1px solid #d6deeb;
 }
@@ -152,11 +194,27 @@ h3 {
   align-items: center;
   gap: 5px;
   border-radius: 999px;
-  padding: 4px 12px;
-  background: #e8f8ee;
-  border: 1px solid #9ddfb4;
-  color: #0e8a43;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  padding: 5px 12px;
+  border: 1px solid transparent;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72), 0 2px 8px rgba(17, 24, 39, 0.06);
+}
+
+.reward-badge.tier-low {
+  border-color: #8fddb0;
+  background: linear-gradient(180deg, #effcf4, #e1f8ea);
+  color: #0f8d48;
+}
+
+.reward-badge.tier-mid {
+  border-color: #ead08a;
+  background: linear-gradient(180deg, #fff8e6, #fff2ce);
+  color: #936000;
+}
+
+.reward-badge.tier-high {
+  border-color: #f0a3a3;
+  background: linear-gradient(180deg, #fff0f0, #ffdede);
+  color: #b93a3a;
 }
 
 .reward-label {
@@ -165,6 +223,7 @@ h3 {
 }
 
 .reward-value {
+  font-family: var(--font-mono);
   font-size: 13px;
   font-weight: 700;
   letter-spacing: 0.2px;
@@ -200,9 +259,33 @@ h3 {
 }
 
 .type-pill {
-  border-color: #b9d6ff;
-  color: #2563c9;
-  background: #ecf5ff;
+  border-color: #bfd4f7;
+  color: #3b6ab0;
+  background: #edf4ff;
+}
+
+.type-pill.tone-bio {
+  border-color: #8fdcaf;
+  color: #1c7c46;
+  background: #ecfbf2;
+}
+
+.type-pill.tone-finance {
+  border-color: #eccf8f;
+  color: #9a6400;
+  background: #fff8e8;
+}
+
+.type-pill.tone-graph {
+  border-color: #cdb3ff;
+  color: #6f42c1;
+  background: #f5efff;
+}
+
+.type-pill.tone-social {
+  border-color: #f3b2dc;
+  color: #b33b86;
+  background: #fff0f9;
 }
 
 .custom-pill {
@@ -231,5 +314,16 @@ h3 {
   color: #fff;
   background: #2f5a90;
   cursor: pointer;
+}
+
+@keyframes cardCascadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 </style>
