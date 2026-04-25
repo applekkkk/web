@@ -109,7 +109,7 @@ onMounted(loadRecord);
           <h3>数据预览</h3>
           <button type="button" class="download-btn" @click="handleDownloadCsv">下载 CSV</button>
         </header>
-        <div class="table-wrap" v-if="previewData.columns.length">
+        <el-scrollbar class="table-wrap subtle-scrollbar" v-if="previewData.columns.length" max-height="520">
           <table>
             <thead>
               <tr>
@@ -122,7 +122,7 @@ onMounted(loadRecord);
               </tr>
             </tbody>
           </table>
-        </div>
+        </el-scrollbar>
         <p v-else class="empty">暂无预览数据</p>
       </article>
 
@@ -218,7 +218,27 @@ onMounted(loadRecord);
 
 .table-wrap {
   max-height: 520px;
-  overflow: auto;
+}
+
+.subtle-scrollbar :deep(.el-scrollbar__bar.is-vertical) {
+  width: 6px;
+  right: 2px;
+  opacity: 0.35;
+}
+
+.subtle-scrollbar :deep(.el-scrollbar__bar.is-horizontal) {
+  height: 6px;
+  bottom: 2px;
+  opacity: 0.35;
+}
+
+.subtle-scrollbar :deep(.el-scrollbar__thumb) {
+  border-radius: 999px;
+  background: rgba(123, 143, 173, 0.32);
+}
+
+.subtle-scrollbar :deep(.el-scrollbar__bar:hover .el-scrollbar__thumb) {
+  background: rgba(94, 121, 158, 0.5);
 }
 
 table {

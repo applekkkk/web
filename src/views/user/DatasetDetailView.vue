@@ -2,6 +2,7 @@
 import { computed, ref, watch } from "vue";
 import { useRoute } from "vue-router";
 import { ElMessage } from "element-plus";
+import { ShoppingCart } from "@element-plus/icons-vue";
 import request from "../../services/request";
 import { marketData } from "../../mock/data";
 import { orderApi, productApi, taskAppealApi } from "../../services/api";
@@ -645,10 +646,19 @@ async function handleBuy() {
           </el-select>
         </template>
       </div>
-      <button v-else-if="!dataset.purchased" class="download" @click="handleBuy">购买数据集</button>
+      <button v-else-if="!dataset.purchased" class="download" @click="handleBuy">
+        <el-icon><ShoppingCart /></el-icon>
+        <span>购买数据集</span>
+      </button>
       <div v-else class="purchased-actions">
-        <button class="purchased" type="button" disabled>已购买</button>
-        <button type="button" class="appeal-btn" @click="openAppealDialog">申诉</button>
+        <button class="purchased" type="button" disabled>
+          <span class="purchased-dot" aria-hidden="true"></span>
+          <span>已购买</span>
+        </button>
+        <button type="button" class="appeal-btn" @click="openAppealDialog">
+          <span class="appeal-icon" aria-hidden="true">i</span>
+          <span>申诉</span>
+        </button>
       </div>
     </header>
 
@@ -663,7 +673,7 @@ async function handleBuy() {
         <div v-if="previewLoading" class="preview-empty">预览加载中...</div>
         <div v-else-if="previewError" class="preview-empty">{{ previewError }}</div>
         <div v-else-if="previewRows.length === 0" class="preview-empty">暂无可预览数据</div>
-        <div v-else class="preview-scroll">
+        <el-scrollbar v-else class="preview-scroll subtle-scrollbar" max-height="360">
           <table class="preview-table">
             <thead>
               <tr>
@@ -676,7 +686,7 @@ async function handleBuy() {
               </tr>
             </tbody>
           </table>
-        </div>
+        </el-scrollbar>
       </div>
     </section>
 
@@ -906,20 +916,47 @@ h1 {
 }
 
 .download {
-  border: 1px solid #d8b989;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid #bcd2f6;
   border-radius: 999px;
-  padding: 8px 16px;
-  color: #b98335;
-  background: #fff;
+  padding: 9px 16px;
+  color: #2f5a90;
+  background: #edf4ff;
   cursor: pointer;
+  transition: background-color 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+}
+
+.download:hover {
+  border-color: #9dbded;
+  background: #e4efff;
+  transform: translateY(-1px);
+}
+
+.download :deep(.el-icon) {
+  font-size: 16px;
 }
 
 .purchased {
-  border: 1px solid #3aaa5d;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: none;
   border-radius: 999px;
-  padding: 8px 16px;
-  color: #fff;
-  background: #3aaa5d;
+  padding: 8px 2px;
+  color: #108158;
+  font-weight: 600;
+  background: transparent;
+  opacity: 1;
+}
+
+.purchased-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #24b47e;
+  box-shadow: 0 0 0 4px rgba(36, 180, 126, 0.2);
 }
 
 .purchased-actions {
@@ -929,12 +966,36 @@ h1 {
 }
 
 .appeal-btn {
-  border: 1px solid #9fd5f6;
-  border-radius: 999px;
-  padding: 8px 16px;
-  color: #299be4;
-  background: #f3faff;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid #c8d1dc;
+  border-radius: 12px;
+  padding: 10px 18px;
+  color: #2b3340;
+  font-weight: 600;
+  background: #fff;
   cursor: pointer;
+}
+
+.appeal-btn:hover {
+  border-color: #b7c2cf;
+  background: #f9fbfe;
+}
+
+.appeal-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border: 1.5px solid #8b95a3;
+  border-radius: 50%;
+  color: #7f8998;
+  font-size: 11px;
+  font-weight: 700;
+  font-family: "Space Mono", "JetBrains Mono", monospace;
+  line-height: 1;
 }
 
 @keyframes detailLikeBounce {
@@ -1041,7 +1102,27 @@ p {
 
 .preview-scroll {
   max-height: 360px;
-  overflow: auto;
+}
+
+.subtle-scrollbar :deep(.el-scrollbar__bar.is-vertical) {
+  width: 6px;
+  right: 2px;
+  opacity: 0.35;
+}
+
+.subtle-scrollbar :deep(.el-scrollbar__bar.is-horizontal) {
+  height: 6px;
+  bottom: 2px;
+  opacity: 0.35;
+}
+
+.subtle-scrollbar :deep(.el-scrollbar__thumb) {
+  border-radius: 999px;
+  background: rgba(123, 143, 173, 0.32);
+}
+
+.subtle-scrollbar :deep(.el-scrollbar__bar:hover .el-scrollbar__thumb) {
+  background: rgba(94, 121, 158, 0.5);
 }
 
 .preview-table {

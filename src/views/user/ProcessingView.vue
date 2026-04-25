@@ -270,7 +270,7 @@ onBeforeUnmount(() => {
             <button type="button" class="btn ghost small" @click="handleDownload">下载 CSV</button>
           </div>
         </header>
-        <div class="table-scroll" v-if="processPreview.columns.length">
+        <el-scrollbar class="table-scroll subtle-scrollbar" v-if="processPreview.columns.length">
           <table>
             <thead>
               <tr>
@@ -283,7 +283,7 @@ onBeforeUnmount(() => {
               </tr>
             </tbody>
           </table>
-        </div>
+        </el-scrollbar>
         <p v-else class="empty">暂无预览数据</p>
       </article>
 
@@ -420,9 +420,29 @@ textarea {
 .preview-panel .table-scroll {
   width: 100%;
   max-width: 100%;
-  overflow: auto;
   flex: 1;
   min-height: 0;
+}
+
+.subtle-scrollbar :deep(.el-scrollbar__bar.is-vertical) {
+  width: 6px;
+  right: 2px;
+  opacity: 0.35;
+}
+
+.subtle-scrollbar :deep(.el-scrollbar__bar.is-horizontal) {
+  height: 6px;
+  bottom: 2px;
+  opacity: 0.35;
+}
+
+.subtle-scrollbar :deep(.el-scrollbar__thumb) {
+  border-radius: 999px;
+  background: rgba(123, 143, 173, 0.32);
+}
+
+.subtle-scrollbar :deep(.el-scrollbar__bar:hover .el-scrollbar__thumb) {
+  background: rgba(94, 121, 158, 0.5);
 }
 
 table {
