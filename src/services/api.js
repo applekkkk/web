@@ -31,6 +31,8 @@ export const productApi = {
 
 export const orderApi = {
   getUserList: (userId) => request.get(`/orders/user/${userId}`),
+  hasPurchased: (buyerId, productId) => request.get("/orders/purchased", { params: { buyerId, productId } }),
+  getPurchasedProductIds: (userId) => request.get(`/orders/purchased-products/${userId}`),
   getAll: () => request.get("/orders/all"),
   create: (data) => request.post("/orders", data),
   adminSetPurchaseStatus: (buyerId, productId, purchased) =>

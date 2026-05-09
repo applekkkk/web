@@ -104,25 +104,12 @@ function isOwnProduct(item) {
   return Number(item?.authorId ?? item?.author_id ?? 0) === uid;
 }
 
-function hasPurchased(productId, orderList) {
-  return orderList.some((item) => {
-    const active = Number(item?.status ?? 1) === 1;
-    if (!active) return false;
-    const pid = Number(item?.productId ?? 0);
-    const productName = String(item?.productName ?? "");
-    const byDataOrder = productName.startsWith("购买数据:");
-    const byAdminGrant = productName.startsWith("管理员授权购买:");
-    return pid === Number(productId) && (byDataOrder || byAdminGrant);
-  });
-}
-
 async function refreshPurchasedState() {
   if (isAdminView.value || !dataset.value?.id || !auth.user?.id) return;
   try {
-    const res = await orderApi.getUserList(auth.user.id);
+    const res = await orderApi.hasPurchased(auth.user.id, dataset.value.id);
     if (res?.code !== 200) return;
-    const list = Array.isArray(res?.data) ? res.data : [];
-    dataset.value.purchased = hasPurchased(dataset.value.id, list) || isOwnProduct(dataset.value);
+    dataset.value.purchased = Boolean(res?.data);
   } catch {
     // keep current purchased state when order fetch fails
   }
@@ -230,10 +217,8 @@ async function fetchDataset() {
     }
     dataset.value = normalizeProduct(res.data || {});
     if (isAppealMode.value && appealBuyerId.value > 0) {
-      const orderRes = await orderApi.getUserList(appealBuyerId.value);
-      const orderList = Array.isArray(orderRes?.data) ? orderRes.data : [];
-      dataset.value.purchased =
-        hasPurchased(dataset.value.id, orderList) || Number(dataset.value.authorId ?? 0) === appealBuyerId.value;
+      const purchasedRes = await orderApi.hasPurchased(appealBuyerId.value, dataset.value.id);
+      dataset.value.purchased = purchasedRes?.code === 200 ? Boolean(purchasedRes?.data) : false;
     } else {
       await refreshPurchasedState();
     }
@@ -254,24 +239,13 @@ async function fetchDataset() {
     }
     await syncAppealStatus();
   } catch (e) {
-    const fallback = sourceDataset.value ? { ...sourceDataset.value } : null;
-    dataset.value = fallback ? normalizeProduct(fallback) : null;
+    dataset.value = null;
     suppressReviewSync.value = false;
-    if (dataset.value && isNetworkDataset.value) {
-      resetTabularPreview();
-      if (isAdminView.value) {
-        await fetchGraphPreview();
-      } else {
-        clearGraphPreview();
-      }
-    } else {
-      clearGraphPreview();
-      await fetchPreview();
-    }
-    await syncAppealStatus();
-    if (!dataset.value) {
-      ElMessage.error(e?.message || "加载失败");
-    }
+    clearGraphPreview();
+    resetTabularPreview();
+    appealStatus.value = 0;
+    appealDetail.value = null;
+    ElMessage.error(e?.message || "Load failed");
   } finally {
     loading.value = false;
   }

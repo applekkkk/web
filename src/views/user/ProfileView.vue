@@ -228,18 +228,21 @@ function goNeedDetail(item) {
   router.push({ path: `/user/custom-bids/${item.id}` });
 }
 
-function purchasedIdSet(orderList) {
-  return new Set(
-    orderList
-      .filter((item) => {
-        if (Number(item?.status ?? 1) !== 1) return false;
-        const name = String(item?.productName ?? "");
-        return name.startsWith("购买数据:") || name.startsWith("管理员授权购买:");
-      })
-      .map((item) => Number(item.productId))
-      .filter((id) => Number.isFinite(id) && id > 0)
-  );
+async function fetchPurchasedIdSet() {
+  if (!userId.value) return new Set();
+  try {
+    const res = await orderApi.getPurchasedProductIds(userId.value);
+    if (res?.code !== 200) return new Set();
+    return new Set(
+      (Array.isArray(res?.data) ? res.data : [])
+        .map((id) => Number(id))
+        .filter((id) => Number.isFinite(id) && id > 0)
+    );
+  } catch {
+    return new Set();
+  }
 }
+
 
 async function fetchOrders(silent = false) {
   if (!userId.value) return [];
@@ -278,9 +281,9 @@ async function fetchAppeals(silent = false) {
   }
 }
 
-async function fetchPurchasedDatasets(sourceOrders) {
-  const orderList = Array.isArray(sourceOrders) ? sourceOrders : orders.value;
-  const ids = Array.from(purchasedIdSet(orderList));
+async function fetchPurchasedDatasets() {
+  const purchasedSet = await fetchPurchasedIdSet();
+  const ids = Array.from(purchasedSet);
   if (ids.length === 0) {
     purchasedDatasets.value = [];
     return;
@@ -299,15 +302,15 @@ async function fetchPurchasedDatasets(sourceOrders) {
   purchasedDatasets.value = dedupeProducts(list.filter(Boolean));
 }
 
+
 async function fetchFavoriteDatasets(silent = false) {
   if (!userId.value) return;
   if (!silent) datasetLoading.value = true;
   try {
-    const [favoriteRes, orderList] = await Promise.all([productApi.getFavoriteProducts(userId.value), fetchOrders(true)]);
+    const [favoriteRes, purchasedSet] = await Promise.all([productApi.getFavoriteProducts(userId.value), fetchPurchasedIdSet()]);
     if (favoriteRes?.code !== 200) {
       throw new Error(favoriteRes?.message || "加载收藏失败");
     }
-    const purchasedSet = purchasedIdSet(orderList);
     const list = Array.isArray(favoriteRes?.data) ? favoriteRes.data : [];
     favoriteDatasets.value = list.map((item) =>
       normalizeProduct({
@@ -379,8 +382,7 @@ async function loadTabData() {
   }
   if (activeTab.value === "个人仓库") {
     datasetLoading.value = true;
-    const orderList = await fetchOrders(true);
-    await fetchPurchasedDatasets(orderList);
+    await fetchPurchasedDatasets();
     datasetLoading.value = false;
     return;
   }

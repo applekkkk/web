@@ -132,16 +132,11 @@ async function fetchPurchasedIds() {
     return;
   }
   try {
-    const res = await orderApi.getUserList(auth.user.id);
+    const res = await orderApi.getPurchasedProductIds(auth.user.id);
     if (res?.code !== 200) return;
     const set = new Set(
       (Array.isArray(res?.data) ? res.data : [])
-        .filter((item) => {
-          if (Number(item?.status ?? 1) !== 1) return false;
-          const name = String(item?.productName ?? "");
-          return name.startsWith("购买数据:") || name.startsWith("管理员授权购买:");
-        })
-        .map((item) => Number(item?.productId ?? 0))
+        .map((id) => Number(id))
         .filter((id) => Number.isFinite(id) && id > 0)
     );
     purchasedIdSet.value = set;
@@ -149,6 +144,7 @@ async function fetchPurchasedIds() {
     // keep current purchased status when order fetch fails
   }
 }
+
 
 watch([activeCategory, activeSort], () => {
   currentPage.value = 1;
